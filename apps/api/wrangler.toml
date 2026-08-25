@@ -1,0 +1,19 @@
+name = "myplv-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Variables non-sensibles. Les secrets (DATABASE_URL, AUTH_SECRET,
+# BREVO_API_KEY, CRON_SECRET...) se posent avec `wrangler secret put <NOM>`,
+# jamais dans ce fichier ni dans le code.
+[vars]
+APP_URL = "https://app.myplv.be"
+SESSION_COOKIE_NAME = "myplv_session"
+SESSION_TTL_HOURS = "168"
+EMAIL_DAILY_LIMIT = "50"
+
+# À décommenter une fois le sous-domaine app.myplv.be pointé (voir section 4
+# du rapport d'audit) :
+# [[routes]]
+# pattern = "app.myplv.be/api/*"
+# zone_name = "myplv.be"

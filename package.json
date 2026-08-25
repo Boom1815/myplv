@@ -1,0 +1,28 @@
+{
+  "name": "myplv-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MYPLV — plateforme privée de prospection automatisée (app.myplv.be)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "db:generate": "npm run generate -w @myplv/db",
+    "db:migrate": "npm run migrate -w @myplv/db",
+    "import:kbo": "npm run import:kbo -w @myplv/importer",
+    "api:dev": "npm run dev -w @myplv/api",
+    "web:dev": "npm run dev -w @myplv/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "@types/pg": "^8.11.10"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

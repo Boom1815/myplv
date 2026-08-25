@@ -1,0 +1,27 @@
+{
+  "name": "@myplv/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/dev-server.ts",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@myplv/auth": "*",
+    "@myplv/db": "*",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.36.4",
+    "hono": "^4.6.9"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5",
+    "wrangler": "^3.86.1"
+  }
+}
