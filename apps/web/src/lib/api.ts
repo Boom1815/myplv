@@ -37,6 +37,32 @@ export const api = {
   addBlacklistRule: (scope: string, value: string, reason?: string) =>
     request<{ rule: BlacklistRule }>("/blacklist", { method: "POST", body: JSON.stringify({ scope, value, reason }) }),
   deleteBlacklistRule: (id: string) => request<{ ok: true }>(`/blacklist/${id}`, { method: "DELETE" }),
+  sectors: () => request<{ data: Sector[] }>("/sectors"),
+  addSector: (label: string, description?: string) =>
+    request<{ sector: Sector }>("/sectors", { method: "POST", body: JSON.stringify({ label, description }) }),
+  deleteSector: (id: string) => request<{ ok: true }>(`/sectors/${id}`, { method: "DELETE" }),
+  addNaceRule: (sectorId: string, nacePrefix: string, priority?: number) =>
+    request<{ rule: NaceRule }>(`/sectors/${sectorId}/nace-rules`, {
+      method: "POST",
+      body: JSON.stringify({ nacePrefix, priority }),
+    }),
+  deleteNaceRule: (sectorId: string, ruleId: string) =>
+    request<{ ok: true }>(`/sectors/${sectorId}/nace-rules/${ruleId}`, { method: "DELETE" }),
+  geographicZones: () => request<{ data: GeoZone[] }>("/geographic-zones"),
+  upsertGeoZone: (zone: { postalCode: string; municipality?: string; province: string; region: string; isActive: boolean }) =>
+    request<{ zone: GeoZone }>("/geographic-zones", { method: "POST", body: JSON.stringify(zone) }),
+  deleteGeoZone: (id: string) => request<{ ok: true }>(`/geographic-zones/${id}`, { method: "DELETE" }),
+};
+
+export type NaceRule = { id: string; sectorId: string; nacePrefix: string; priority: number };
+export type Sector = { id: string; slug: string; label: string; description: string | null; naceRules: NaceRule[] };
+export type GeoZone = {
+  id: string;
+  postalCode: string;
+  municipality: string;
+  province: string;
+  region: string;
+  isActive: boolean;
 };
 
 export type DashboardStats = {

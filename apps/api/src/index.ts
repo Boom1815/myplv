@@ -8,6 +8,8 @@ import { prospectsRoutes } from "./routes/prospects";
 import { scoringRoutes } from "./routes/scoring";
 import { dashboardRoutes } from "./routes/dashboard";
 import { blacklistRoutes } from "./routes/blacklist";
+import { sectorsRoutes } from "./routes/sectors";
+import { geoZonesRoutes } from "./routes/geographic-zones";
 
 const app = new Hono<AppBindings>();
 
@@ -26,6 +28,8 @@ app.route("/api/prospects", prospectsRoutes);
 app.route("/api/scoring-rules", scoringRoutes);
 app.route("/api/dashboard", dashboardRoutes);
 app.route("/api/blacklist", blacklistRoutes);
+app.route("/api/sectors", sectorsRoutes);
+app.route("/api/geographic-zones", geoZonesRoutes);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

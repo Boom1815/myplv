@@ -63,18 +63,38 @@ async function main() {
   console.log(`Import KBO Open Data depuis ${dir}`);
   const startedAt = new Date();
 
+  // --- Overrides géographiques (brief section 22 : exclusions, zones
+  // personnalisées) : `isActive: false` exclut un code postal normalement
+  // dans le périmètre par défaut, `isActive: true` en ajoute un en dehors.
+  const geoOverrides = new Map(
+    (await db.select().from(schema.geographicZones)).map((z) => [
+      z.postalCode,
+      { province: z.province, region: z.region, municipality: z.municipality, isActive: z.isActive },
+    ]),
+  );
+
   // --- Passe 1 : address.csv -> périmètre géographique + adresse résolue ---
   const addressByEntity = new Map<string, ResolvedAddress>();
   const addressSeen = await readCsvRows<AddressRow>(path.join(dir, "address.csv"), (row) => {
     if (addressByEntity.has(row.EntityNumber)) return; // on garde la première adresse rencontrée
     if (row.DateStrikingOff) return; // adresse radiée
-    const geo = resolveGeoFromPostalCode(row.Zipcode);
-    if (!geo) return; // hors périmètre de lancement — l'entité est simplement ignorée
+
+    const zip = (row.Zipcode || "").trim();
+    const override = geoOverrides.get(zip);
+    let geo: { province: string; region: string } | null;
+    if (override) {
+      if (!override.isActive) return; // exclusion explicite
+      geo = { province: override.province, region: override.region };
+    } else {
+      geo = resolveGeoFromPostalCode(zip); // périmètre par défaut, par plage de code postal
+    }
+    if (!geo) return; // hors périmètre — l'entité est simplement ignorée
+
     addressByEntity.set(row.EntityNumber, {
       street: row.StreetFR || row.StreetNL || null,
       houseNumber: row.HouseNumber || null,
-      postalCode: (row.Zipcode || "").trim(),
-      municipality: row.MunicipalityFR || row.MunicipalityNL || null,
+      postalCode: zip,
+      municipality: override?.municipality || row.MunicipalityFR || row.MunicipalityNL || null,
       province: geo.province,
       region: geo.region,
     });

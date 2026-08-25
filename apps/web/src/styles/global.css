@@ -393,6 +393,48 @@ a {
   color: var(--ink);
 }
 
+/* --- Sectors --- */
+
+.sector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.nace-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.nace-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 12.5px;
+  padding: 3px 6px 3px 9px;
+  border-radius: 999px;
+}
+
+.nace-chip button {
+  border: none;
+  background: transparent;
+  color: var(--accent-ink);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 3px;
+  border-radius: 999px;
+  opacity: 0.7;
+}
+
+.nace-chip button:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.08);
+}
+
 /* --- Prospects table --- */
 
 .page-head {
