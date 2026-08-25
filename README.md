@@ -14,8 +14,9 @@ rapport d'audit). Ce qui existe et fonctionne, testé de bout en bout :
   liste des prospects filtrable/paginée, écrans Scoring, Dashboard, Liste
   noire, Secteurs/NACE, Zones géographiques.
 - Frontend (React/Vite, déployable sur Cloudflare Pages) : connexion,
-  Dashboard, Prospects, Scoring, Liste noire, Secteurs, Géographie —
-  édition réservée ADMIN, lecture seule READER partout où c'est pertinent.
+  Dashboard, Prospects (avec tags), Scoring, Liste noire, Secteurs,
+  Géographie — édition réservée ADMIN, lecture seule READER partout où
+  c'est pertinent.
 - Import KBO/BCE Open Data : filtrage géographique, dédoublonnage par
   numéro BCE, résolution automatique du secteur (NACE → secteur), exclusion
   automatique par liste noire, journalisation.
@@ -99,7 +100,6 @@ détail (fichiers attendus, hypothèses à valider sur un export réel).
 
 ## Prochaines étapes
 
-Gestion des tags. Puis Phase 3 (offres, campagnes, emailing avec Brevo,
-mode validation/dry run avant tout envoi) — nécessite le compte Brevo listé
-dans `docs/DEPLOY.md`. Voir le plan de développement dans le rapport
-d'audit.
+Phase 3 (offres, campagnes, emailing avec Brevo, mode validation/dry run
+avant tout envoi) — nécessite le compte Brevo listé dans `docs/DEPLOY.md`.
+Voir le plan de développement dans le rapport d'audit.
