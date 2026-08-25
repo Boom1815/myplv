@@ -1,0 +1,627 @@
+<title>Audit MYPLV</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,560;9..144,650&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#EEF0EC;
+    --surface:#FFFFFF;
+    --ink:#1C2230;
+    --ink-soft:#4B5566;
+    --ink-faint:#7B8494;
+    --line:#D8DCD3;
+    --line-soft:#E4E6DF;
+    --accent:#2C4A9E;
+    --accent-ink:#1E3474;
+    --accent-soft:#E7ECF8;
+    --good:#3E7A54;
+    --good-soft:#E4F0E7;
+    --warn:#A8721F;
+    --warn-soft:#F5ECDA;
+    --risk:#AE3B34;
+    --risk-soft:#F6E3E1;
+    --shadow: 0 1px 2px rgba(28,34,48,0.06), 0 8px 24px -12px rgba(28,34,48,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#14171C;
+      --surface:#1B1F27;
+      --ink:#ECEDEA;
+      --ink-soft:#B7BCC6;
+      --ink-faint:#7E8694;
+      --line:#2B303B;
+      --line-soft:#242832;
+      --accent:#8FA9E8;
+      --accent-ink:#C4D2F4;
+      --accent-soft:#212D49;
+      --good:#7FC498;
+      --good-soft:#1E2E22;
+      --warn:#E3B565;
+      --warn-soft:#332A16;
+      --risk:#E58A82;
+      --risk-soft:#3A211F;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#14171C;
+    --surface:#1B1F27;
+    --ink:#ECEDEA;
+    --ink-soft:#B7BCC6;
+    --ink-faint:#7E8694;
+    --line:#2B303B;
+    --line-soft:#242832;
+    --accent:#8FA9E8;
+    --accent-ink:#C4D2F4;
+    --accent-soft:#212D49;
+    --good:#7FC498;
+    --good-soft:#1E2E22;
+    --warn:#E3B565;
+    --warn-soft:#332A16;
+    --risk:#E58A82;
+    --risk-soft:#3A211F;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.6);
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Public Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
+
+  a{color:var(--accent); text-decoration-thickness:1px; text-underline-offset:2px;}
+  a:focus-visible, button:focus-visible, .toc a:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:2px;}
+
+  h1,h2,h3{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:560;
+    letter-spacing:-0.01em;
+    text-wrap:balance;
+    color:var(--ink);
+  }
+
+  .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums;}
+
+  .wrap{max-width:840px; margin:0 auto; padding:0 24px 120px;}
+
+  header.masthead{
+    padding:56px 24px 40px;
+    border-bottom:1px solid var(--line);
+    background:
+      linear-gradient(var(--paper), var(--paper));
+  }
+  .masthead-inner{max-width:840px; margin:0 auto;}
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12.5px; letter-spacing:0.09em; text-transform:uppercase;
+    color:var(--accent-ink);
+    background:var(--accent-soft);
+    border:1px solid var(--line);
+    padding:5px 10px 5px 8px;
+    border-radius:999px;
+  }
+  .eyebrow .dot{width:6px; height:6px; border-radius:50%; background:var(--accent);}
+  h1.title{font-size:clamp(30px,4.4vw,42px); margin:18px 0 8px; line-height:1.08;}
+  p.subtitle{font-size:17px; color:var(--ink-soft); max-width:60ch; margin:0 0 22px;}
+  .meta-row{display:flex; flex-wrap:wrap; gap:10px 22px; font-size:13.5px; color:var(--ink-faint); font-family:"IBM Plex Mono",monospace;}
+  .meta-row b{color:var(--ink-soft); font-weight:500;}
+
+  .status-banner{
+    margin-top:26px;
+    display:flex; gap:12px; align-items:flex-start;
+    background:var(--warn-soft);
+    border:1px solid color-mix(in srgb, var(--warn) 35%, var(--line));
+    border-radius:10px;
+    padding:14px 16px;
+    font-size:14.5px;
+    color:var(--ink);
+  }
+  .status-banner strong{color:var(--warn); font-family:"IBM Plex Mono",monospace; letter-spacing:.03em; text-transform:uppercase; font-size:12.5px;}
+
+  nav.toc{
+    max-width:840px; margin:0 auto; padding:28px 24px 8px;
+  }
+  nav.toc ol{
+    list-style:none; margin:0; padding:0;
+    display:grid; grid-template-columns:1fr 1fr; gap:6px 28px;
+    font-size:14.5px;
+  }
+  nav.toc li{border-bottom:1px dotted var(--line-soft); padding:6px 0;}
+  nav.toc a{color:var(--ink-soft); text-decoration:none;}
+  nav.toc a:hover{color:var(--accent);}
+  nav.toc .n{color:var(--ink-faint); font-family:"IBM Plex Mono",monospace; margin-right:8px;}
+  @media (max-width:600px){ nav.toc ol{grid-template-columns:1fr;} }
+
+  section.block{padding:44px 0; border-bottom:1px solid var(--line-soft);}
+  section.block:last-of-type{border-bottom:none;}
+  .section-head{display:flex; align-items:baseline; gap:12px; margin-bottom:6px;}
+  .section-num{font-family:"IBM Plex Mono",monospace; color:var(--accent); font-size:14px;}
+  h2{font-size:24px; margin:0 0 18px;}
+  h3{font-size:17px; margin:28px 0 10px; font-weight:560;}
+  p{margin:0 0 14px; max-width:70ch;}
+  ul,ol{margin:0 0 14px; padding-left:22px;}
+  li{margin-bottom:6px;}
+  .lede{font-size:17px; color:var(--ink-soft);}
+
+  .callout{
+    border:1px solid var(--line); border-left:3px solid var(--accent);
+    background:var(--surface); border-radius:8px;
+    padding:16px 18px; margin:16px 0; box-shadow:var(--shadow);
+  }
+  .callout.risk{border-left-color:var(--risk);}
+  .callout.good{border-left-color:var(--good);}
+  .callout p:last-child{margin-bottom:0;}
+  .callout .label{font-family:"IBM Plex Mono",monospace; font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); margin-bottom:6px; display:block;}
+
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.04em; text-transform:uppercase;
+    padding:3px 9px; border-radius:999px; border:1px solid transparent; white-space:nowrap;
+  }
+  .pill.free{background:var(--good-soft); color:var(--good); border-color:color-mix(in srgb, var(--good) 30%, transparent);}
+  .pill.check{background:var(--warn-soft); color:var(--warn); border-color:color-mix(in srgb, var(--warn) 30%, transparent);}
+  .pill.risk{background:var(--risk-soft); color:var(--risk); border-color:color-mix(in srgb, var(--risk) 30%, transparent);}
+  .pill.neutral{background:var(--accent-soft); color:var(--accent-ink); border-color:color-mix(in srgb, var(--accent) 25%, transparent);}
+
+  .table-scroll{overflow-x:auto; margin:14px 0 20px; border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow);}
+  table{border-collapse:collapse; width:100%; min-width:560px; font-size:14px; background:var(--surface);}
+  th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line-soft); vertical-align:top;}
+  thead th{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-faint); background:var(--paper); border-bottom:1px solid var(--line);
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  td.num, th.num{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  tbody tr:hover{background:var(--line-soft);}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:18px 0;}
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px;
+    box-shadow:var(--shadow);
+  }
+  .card h4{margin:0 0 6px; font-size:15px; font-family:"Public Sans"; font-weight:700;}
+  .card .score{font-family:"IBM Plex Mono",monospace; font-size:28px; color:var(--accent); line-height:1;}
+  .card .score span{font-size:14px; color:var(--ink-faint);}
+  .card p{font-size:13.5px; color:var(--ink-soft); margin:8px 0 0;}
+  .card.reco{border-color:var(--good); box-shadow:0 0 0 1px var(--good), var(--shadow);}
+  .card.reco .score{color:var(--good);}
+
+  .flow{
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+    font-family:"IBM Plex Mono",monospace; font-size:13px; margin:16px 0;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px;
+  }
+  .flow .step{background:var(--accent-soft); color:var(--accent-ink); padding:6px 11px; border-radius:6px; border:1px solid color-mix(in srgb, var(--accent) 25%, transparent);}
+  .flow .arrow{color:var(--ink-faint);}
+
+  .decision{
+    border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin:16px 0; background:var(--surface); box-shadow:var(--shadow);
+  }
+  .decision dl{display:grid; grid-template-columns:110px 1fr; gap:6px 14px; margin:0; font-size:14px;}
+  .decision dt{font-family:"IBM Plex Mono",monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); padding-top:2px;}
+  .decision dd{margin:0;}
+
+  .qlist{list-style:none; margin:0; padding:0;}
+  .qlist li{
+    display:flex; gap:12px; padding:12px 0; border-bottom:1px dotted var(--line);
+  }
+  .qlist li:last-child{border-bottom:none;}
+  .qlist .qn{font-family:"IBM Plex Mono",monospace; color:var(--accent); font-size:13px; flex:0 0 auto; padding-top:2px;}
+
+  .phase{display:flex; gap:16px; margin:0 0 22px;}
+  .phase .marker{flex:0 0 auto; display:flex; flex-direction:column; align-items:center;}
+  .phase .marker .num{
+    width:30px; height:30px; border-radius:50%; background:var(--accent-soft); color:var(--accent-ink);
+    display:flex; align-items:center; justify-content:center; font-family:"IBM Plex Mono",monospace; font-size:13px; border:1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .phase .marker .line{flex:1; width:1px; background:var(--line); margin-top:6px;}
+  .phase:last-child .marker .line{display:none;}
+  .phase .body{padding-bottom:8px;}
+  .phase h4{margin:2px 0 6px; font-size:16px; font-family:"Fraunces"; font-weight:560;}
+  .phase p{margin:0 0 6px; font-size:14.5px;}
+
+  footer.end{padding:40px 0 0; color:var(--ink-faint); font-size:13px;}
+  footer.end a{color:var(--ink-faint);}
+
+  code.inline{font-family:"IBM Plex Mono",monospace; font-size:0.92em; background:var(--line-soft); padding:1px 6px; border-radius:4px;}
+</style>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <span class="eyebrow"><span class="dot"></span>Rapport d'audit &amp; de faisabilité</span>
+    <h1 class="title">MYPLV — Prospection &amp; refonte digitale</h1>
+    <p class="subtitle">Phase 0 : audit de l'existant, des sources de données et des options techniques, avant toute décision d'architecture ou ligne de code.</p>
+    <div class="meta-row">
+      <span><b>Préparé pour</b> info@myplv.be</span>
+      <span><b>Date</b> 25 août 2026</span>
+      <span><b>Statut</b> aucune ligne de code produite — conforme à la consigne</span>
+    </div>
+    <div class="status-banner">
+      <div>
+        <strong>À traiter en premier</strong><br>
+        L'environnement de développement connecté (dépôt <code class="inline">Boom1815/Tof-Box</code>) est une application existante sans rapport avec MYPLV — voir <a href="#depot">section 1</a>. Aucun fichier n'y a été modifié. La création d'un dépôt dédié a été tentée et bloquée par les permissions GitHub actuelles : une action de ta part est nécessaire avant la suite.
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <ol>
+    <li><span class="n">01</span><a href="#depot">Dépôt de code — constat &amp; action requise</a></li>
+    <li><span class="n">02</span><a href="#resume">Résumé exécutif</a></li>
+    <li><span class="n">03</span><a href="#site">Audit myPLV.be &amp; Wix</a></li>
+    <li><span class="n">04</span><a href="#hebergement">Hébergement, domaine, DNS</a></li>
+    <li><span class="n">05</span><a href="#seo">SEO — ce qui est connu</a></li>
+    <li><span class="n">06</span><a href="#architecture">Wix vs reconstruction — décision</a></li>
+    <li><span class="n">07</span><a href="#cible">Architecture cible</a></li>
+    <li><span class="n">08</span><a href="#donnees">Sources de données gratuites (BCE/KBO)</a></li>
+    <li><span class="n">09</span><a href="#email">Email — objectif 0 €/mois</a></li>
+    <li><span class="n">10</span><a href="#stack">Stack &amp; hébergement 0 €/mois</a></li>
+    <li><span class="n">11</span><a href="#database">Base de données</a></li>
+    <li><span class="n">12</span><a href="#jobs">Automatisations &amp; jobs</a></li>
+    <li><span class="n">13</span><a href="#rgpd">RGPD &amp; sécurité</a></li>
+    <li><span class="n">14</span><a href="#couts">Coûts</a></li>
+    <li><span class="n">15</span><a href="#risques">Risques &amp; limites</a></li>
+    <li><span class="n">16</span><a href="#questions">Questions ouvertes</a></li>
+    <li><span class="n">17</span><a href="#plan">Plan de développement</a></li>
+  </ol>
+</nav>
+
+<div class="wrap">
+
+  <section class="block" id="depot">
+    <div class="section-head"><span class="section-num">01</span><h2>Dépôt de code — constat &amp; action requise</h2></div>
+    <p class="lede">Avant l'audit du site, un constat factuel sur l'environnement dans lequel cette session s'exécute.</p>
+    <div class="callout risk">
+      <span class="label">Constat</span>
+      <p>Le dépôt GitHub connecté à cette session (<code class="inline">Boom1815/Tof-Box</code>, branche <code class="inline">claude/myplv-refonte-prospection-43gqgh</code>) contient déjà une application complète, en production, sans aucun rapport avec MYPLV : « Tof-Box », une app grand public avec parrainage, coffre-fort numérique, partage d'objets, TofMeet, facturation Stripe, et des builds iOS/Android via Capacitor (voir <code class="inline">codemagic.yaml</code>, <code class="inline">backend/referral_routes.py</code>, <code class="inline">backend/vault_routes.py</code>, etc.).</p>
+    </div>
+    <p>Construire la plateforme MYPLV à l'intérieur de ce dépôt aurait mélangé deux produits sans lien, avec un vrai risque d'écraser du code de production existant — contraire au principe n°13 du brief (« ne pas supprimer l'existant sans plan de migration »). J'ai donc posé la question avant d'agir : tu as choisi <strong>un nouveau dépôt dédié</strong> à MYPLV.</p>
+    <p>J'ai tenté de le créer automatiquement (<code class="inline">myplv-platform</code>, privé, sous ton compte GitHub <code class="inline">Boom1815</code>) : l'API GitHub a refusé la création avec une erreur <span class="mono">403 — Resource not accessible by integration</span>. L'intégration GitHub de cette session n'a que des droits de lecture/écriture sur des dépôts déjà autorisés, pas de droit de <em>création</em> de dépôt.</p>
+    <h3>Ce qu'il te reste à faire</h3>
+    <ol>
+      <li>Créer un dépôt GitHub vide (ex. <code class="inline">myplv-platform</code>), sous ton compte ou une organisation dédiée.</li>
+      <li>L'autoriser pour Claude Code (paramètres GitHub de l'intégration, ou en le désignant dans une prochaine session).</li>
+      <li>Je pourrai alors y pousser ce rapport, l'architecture, puis le code — sans jamais toucher à Tof-Box.</li>
+    </ol>
+    <p>En attendant, rien n'a été écrit dans Tof-Box. Ce rapport t'est livré directement ci-dessous, et je peux te l'envoyer en fichier séparé.</p>
+  </section>
+
+  <section class="block" id="resume">
+    <div class="section-head"><span class="section-num">02</span><h2>Résumé exécutif</h2></div>
+    <p class="lede">Ce que je recommande, en une minute de lecture.</p>
+    <ul>
+      <li><strong>Ne pas toucher au site Wix existant dans un premier temps.</strong> Le reconstruire n'apporte aucun bénéfice technique pour le projet de prospection, coûte du temps de conception/contenu, et fait courir un risque SEO évitable. À réévaluer plus tard, séparément.</li>
+      <li><strong>Construire la plateforme de prospection comme application séparée</strong>, sur un sous-domaine (ex. <code class="inline">app.myplv.be</code> ou <code class="inline">prospection.myplv.be</code>), pointé par un enregistrement DNS CNAME géré depuis Wix vers le nouvel hébergeur — techniquement confirmé possible sans quitter Wix (<a href="https://support.wix.com/en/article/connecting-a-subdomain-to-an-external-resource" target="_blank" rel="noopener">doc Wix</a>).</li>
+      <li><strong>Sources de prospects :</strong> Open Data KBO/BCE (fichier complet + mises à jour mensuelles, gratuit, avec inscription) comme socle, complété par l'API publique gratuite CBE API pour les recherches ponctuelles.</li>
+      <li><strong>Email :</strong> Brevo, plan gratuit — 300 emails/jour (6× la cible de 50/j), SPF/DKIM/DMARC inclus, API + SMTP, sans carte bancaire.</li>
+      <li><strong>Stack et hébergement à 0 €/mois</strong> réalistes : Cloudflare Pages + Workers (frontend + API, usage commercial autorisé — <em>à confirmer dans les CGU avant mise en production</em>), base Postgres gérée par Neon, jobs planifiés via GitHub Actions.</li>
+      <li><strong>Blocage immédiat :</strong> il me faut un dépôt GitHub dédié (section 1) avant de produire la moindre ligne de code.</li>
+    </ul>
+  </section>
+
+  <section class="block" id="site">
+    <div class="section-head"><span class="section-num">03</span><h2>Audit myPLV.be &amp; Wix</h2></div>
+    <div class="callout">
+      <span class="label">Limite d'environnement</span>
+      <p>Cette session n'a pas d'accès réseau direct à <code class="inline">myplv.be</code> ni <code class="inline">www.myplv.be</code> — le proxy de sortie de l'environnement les bloque (domaine hors liste blanche), donc impossible d'ouvrir la page, de lire le HTML source ou les en-têtes HTTP directement. L'analyse ci-dessous vient de l'indexation du moteur de recherche, pas d'une inspection directe. À confirmer par un « Afficher le code source » manuel de ta part (recherche de <code class="inline">wix.com</code> / <code class="inline">static.wixstatic.com</code> dans le HTML), ce que je peux te guider à faire en 2 minutes.</p>
+    </div>
+    <h3>Signaux trouvés</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Élément</th><th>Constat</th><th>Confiance</th></tr></thead>
+        <tbody>
+          <tr><td>Plateforme</td><td>URLs en <code class="inline">/post/&lt;slug&gt;</code> (ex. <code class="inline">/post/myplv-lance-son-blog</code>) et pages numérotées <code class="inline">/17.html</code> — motifs caractéristiques de Wix Blog et de l'éditeur Wix classique.</td><td><span class="pill check">à confirmer</span></td></tr>
+          <tr><td>Titre / positionnement</td><td>« myPLV.be I Studio de graphisme et imprimeur cré'actif », mise en avant d'un réseau de 400+ imprimeurs partenaires.</td><td><span class="pill neutral">indexé</span></td></tr>
+          <tr><td>Pages repérées</td><td>Accueil, Portfolio, Bâches, Papiers autocopiants, Aménagement d'intérieurs pour particuliers, Blog.</td><td><span class="pill neutral">indexé</span></td></tr>
+          <tr><td>Contact</td><td>info@myPLV.be — 0477 23 21 67 (retrouvés via l'indexation, à vérifier sur la page Contact réelle).</td><td><span class="pill check">à confirmer</span></td></tr>
+          <tr><td>Hébergement / DNS / SSL</td><td>Non vérifiable depuis cet environnement (voir section 4).</td><td><span class="pill risk">non vérifié</span></td></tr>
+          <tr><td>Analytics / tracking</td><td>Non vérifiable sans accès au HTML.</td><td><span class="pill risk">non vérifié</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Le faisceau d'indices (structure d'URL, existence d'un blog intégré, pas de sitemap XML distinct visible) pointe fortement vers <strong>Wix</strong>, cohérent avec ta description initiale. Rien ne suggère un CMS ou un développement sur-mesure.</p>
+  </section>
+
+  <section class="block" id="hebergement">
+    <div class="section-head"><span class="section-num">04</span><h2>Hébergement, domaine, DNS</h2></div>
+    <p>Même limite d'accès réseau qu'en section 3 : je ne peux pas interroger le WHOIS du domaine ni les enregistrements DNS de <code class="inline">myplv.be</code> depuis cet environnement. C'est une vérification de 5 minutes que je te propose de faire (ou de me transmettre) :</p>
+    <ul>
+      <li><strong>Registrar / DNS :</strong> qui gère <code class="inline">myplv.be</code> — Wix, ou un registrar tiers (ex. <a href="https://dns.be" target="_blank" rel="noopener">DNS Belgium</a>, OVH, Combell…) qui pointe ensuite vers Wix ? Cela change qui peut ajouter les enregistrements DNS nécessaires plus tard.</li>
+      <li><strong>Accès au panneau Wix :</strong> qui a les identifiants (toi, une ancienne agence) ?</li>
+      <li><strong>Plan Wix actuel :</strong> Wix a plusieurs formules — utile pour savoir si l'email professionnel (ex. <code class="inline">info@myplv.be</code>) est géré par Wix ou par un tiers, ce qui influence le choix de fournisseur d'email marketing (section 9).</li>
+    </ul>
+    <div class="callout good">
+      <span class="label">Bonne nouvelle confirmée</span>
+      <p>Même sans savoir qui héberge le DNS aujourd'hui, Wix documente officiellement la possibilité de connecter un sous-domaine (ex. <code class="inline">app.myplv.be</code>) vers une <em>ressource externe</em> via un enregistrement CNAME, que le domaine soit pointé vers Wix ou géré ailleurs. Le site public peut donc rester où il est pendant qu'on construit la plateforme de prospection ailleurs — sans étape de migration risquée.</p>
+    </div>
+  </section>
+
+  <section class="block" id="seo">
+    <div class="section-head"><span class="section-num">05</span><h2>SEO — ce qui est connu</h2></div>
+    <p>Sans accès direct au site, je ne peux pas produire le tableau complet ancienne-URL → nouvelle-URL demandé par le brief (section 12 du prompt maître) — il n'y a d'ailleurs pas de nouvelle URL à ce stade, puisque la recommandation (section 6) est de <strong>ne pas migrer le site public</strong>. Ce qui est établi par l'indexation Google :</p>
+    <ul>
+      <li>Le site est indexé (plusieurs pages ressortent dans les résultats), signe qu'il n'y a pas de blocage <code class="inline">robots.txt</code> flagrant.</li>
+      <li>Les titres de page suivent un format cohérent : <code class="inline">Nom de page | MyPLV I [accroche]</code> — bon signal de discipline SEO existante.</li>
+      <li>Puisque l'architecture recommandée (section 7) laisse <code class="inline">myplv.be</code> inchangé, <strong>le risque SEO de ce projet est nul par construction</strong> : aucune URL publique ne change.</li>
+    </ul>
+  </section>
+
+  <section class="block" id="architecture">
+    <div class="section-head"><span class="section-num">06</span><h2>Wix vs reconstruction — décision</h2></div>
+    <p class="lede">Comparaison des trois options du brief, notées sur les critères qui comptent pour ce projet précis.</p>
+    <div class="cards">
+      <div class="card reco">
+        <h4>Option C — recommandée</h4>
+        <div class="score">8.5<span>/10</span></div>
+        <p><code class="inline">myplv.be</code> reste sur Wix. <code class="inline">app.myplv.be</code> héberge la plateforme privée, stack neuve.</p>
+      </div>
+      <div class="card">
+        <h4>Option A</h4>
+        <div class="score">7<span>/10</span></div>
+        <p>Identique à C dans l'esprit, sous-domaine différent (<code class="inline">prospection.myplv.be</code>). Équivalent techniquement, nom moins naturel pour un futur mini-CRM.</p>
+      </div>
+      <div class="card">
+        <h4>Option B</h4>
+        <div class="score">3<span>/10</span></div>
+        <p><code class="inline">/admin</code> sur le même site que le public. Impossible proprement sur Wix (pas d'app backend complexe, pas de Postgres, pas de cron) — impliquerait de toute façon une reconstruction complète du site public, non justifiée aujourd'hui.</p>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Critère</th><th>A — sous-domaine</th><th>B — reconstruction totale</th><th>C — <code class="inline">app.</code> dédié</th></tr></thead>
+        <tbody>
+          <tr><td>Coût</td><td class="num">0 €</td><td class="num">0 € logiciel, gros coût en temps (refonte contenu/SEO)</td><td class="num">0 €</td></tr>
+          <tr><td>Risque SEO</td><td>Nul</td><td>Élevé (migration complète)</td><td>Nul</td></tr>
+          <tr><td>Délai de mise en route</td><td>Rapide</td><td>Long (refonte + prospection)</td><td>Rapide</td></tr>
+          <tr><td>Capacité technique (Postgres, cron, API)</td><td>Totale (hors Wix)</td><td>Totale, mais sur-coût inutile</td><td>Totale (hors Wix)</td></tr>
+          <tr><td>Cohérence de marque future (CRM, devis…)</td><td>Correcte</td><td>Totale</td><td>Meilleure (<code class="inline">app.</code> = convention standard SaaS)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="decision">
+      <dl>
+        <dt>Choix</dt><dd>Option C — sous-domaine <code class="inline">app.myplv.be</code>, site public Wix inchangé.</dd>
+        <dt>Raison</dt><dd>Isole totalement le risque : le projet de prospection n'a aucune dépendance au site public, et inversement. Convention <code class="inline">app.</code> cohérente avec l'évolution future (CRM, devis, facturation — section 76).</dd>
+        <dt>Alternatives</dt><dd>Option A (équivalente, nom de sous-domaine différent) ; Option B écartée sauf si une refonte du site public est décidée pour des raisons indépendantes (design, conversion) — projet distinct, à traiter séparément.</dd>
+        <dt>Coût</dt><dd>0 € — un sous-domaine ne coûte rien à créer.</dd>
+        <dt>Risque</dt><dd>Faible. Le seul point d'attention est l'accès au panneau DNS (section 4).</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block" id="cible">
+    <div class="section-head"><span class="section-num">07</span><h2>Architecture cible</h2></div>
+    <div class="flow">
+      <span class="step">myplv.be (Wix, inchangé)</span>
+      <span class="arrow">···</span>
+      <span class="step">app.myplv.be (nouveau, dépôt dédié)</span>
+    </div>
+    <p><code class="inline">app.myplv.be</code> contiendra : Dashboard, Prospects, Entreprises, Contacts, Sources, NACE, Secteurs, Géographie, Scoring, Offres, Campagnes, Emails, Automatisations, Réponses, Statistiques, Suppression list, Logs, Paramètres — la liste complète du brief (section 14/80), sous authentification, avec les rôles ADMIN / READER dès le départ.</p>
+    <p>Le site public garde sa structure Wix actuelle (Accueil, Graphisme, Impression, PLV, Web, Réalisations, Services, À propos, Contact) sans modification dans cette phase.</p>
+  </section>
+
+  <section class="block" id="donnees">
+    <div class="section-head"><span class="section-num">08</span><h2>Sources de données gratuites — entreprises belges</h2></div>
+    <p class="lede">Aucune API n'est inventée ici : toutes les sources ci-dessous sont documentées officiellement par le SPF Économie ou des projets tiers construits sur ses données ouvertes.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Source</th><th>Nature</th><th>Coût</th><th>Ce qu'elle donne</th><th>Contrainte</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><a href="https://kbopub.economie.fgov.be/kbo-open-data/" target="_blank" rel="noopener">KBO/BCE Open Data</a></td>
+            <td>Fichiers CSV complets + delta mensuel</td>
+            <td><span class="pill free">gratuit</span></td>
+            <td>Toutes les entités actives de la BCE : dénomination, n° BCE, forme juridique, dates, adresse, codes NACE, établissements.</td>
+            <td>Inscription obligatoire ; pas d'email/téléphone (registre officiel, pas un annuaire) ; livré en fichier, pas en API temps réel.</td>
+          </tr>
+          <tr>
+            <td><a href="https://kbopub.economie.fgov.be/kbopub/" target="_blank" rel="noopener">KBO Public Search</a></td>
+            <td>Recherche web publique</td>
+            <td><span class="pill free">gratuit</span></td>
+            <td>Consultation entreprise par entreprise, sans compte.</td>
+            <td>Pas de bulk / pas d'API — utile pour vérification manuelle uniquement.</td>
+          </tr>
+          <tr>
+            <td><a href="https://cbeapi.be/en" target="_blank" rel="noopener">CBE API (tiers)</a></td>
+            <td>API REST</td>
+            <td><span class="pill free">gratuit (2 500 req/j)</span></td>
+            <td>Interrogation à la volée, pratique pour l'enrichissement/vérification ponctuelle sans gérer soi-même l'import des fichiers Open Data.</td>
+            <td>Service tiers non officiel construit sur l'Open Data publique — à revalider (CGU, continuité de service) avant dépendance forte ; ne pas en faire la source primaire.</td>
+          </tr>
+          <tr>
+            <td>Codes NACE-BEL</td>
+            <td>Nomenclature</td>
+            <td><span class="pill free">gratuit</span></td>
+            <td>Liste officielle des codes d'activité (nouvelle version en vigueur depuis le 1ᵉʳ janvier 2025) — base de la table <code class="inline">nace_codes</code>.</td>
+            <td>Mapping NACE → secteurs métier MYPLV (section 23 du brief) à construire nous-mêmes, aucune source ne le fait.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="label">Architecture retenue</span>
+      <p>KBO Open Data comme <strong>source primaire</strong> (fichier complet à l'initialisation, delta mensuel ensuite via <code class="inline">DataSourceAdapter</code> dédié) — c'est la donnée officielle, gratuite, avec droit d'usage clair. CBE API en <strong>enrichissement secondaire optionnel</strong> pour des vérifications ciblées, jamais comme dépendance critique.</p>
+    </div>
+    <p>Aucune de ces sources ne fournit d'email ou de téléphone directement exploitable à grande échelle : conforme au principe du brief (section 26) — <em>« un prospect sans email reste dans la base mais n'est pas envoyé en campagne »</em>. L'email, quand disponible, viendra du site web de l'entreprise elle-même (scraping léger et respectueux, jamais de contournement de protection) ou restera absent.</p>
+  </section>
+
+  <section class="block" id="email">
+    <div class="section-head"><span class="section-num">09</span><h2>Email — objectif 0 €/mois</h2></div>
+    <p class="lede">Cible : ~50 emails/jour, avec SPF/DKIM/DMARC propres, sans dépendre d'un seul fournisseur (abstraction <code class="inline">EmailProvider</code>).</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Fournisseur</th><th>Limite gratuite</th><th>API / SMTP</th><th>Authentification</th><th>Adapté ?</th></tr></thead>
+        <tbody>
+          <tr><td><a href="https://www.brevo.com/free-smtp-server/" target="_blank" rel="noopener">Brevo</a></td><td class="num">300 emails/j</td><td>API + SMTP</td><td>SPF, DKIM, DMARC natifs, sans carte bancaire</td><td><span class="pill free">retenu</span></td></tr>
+          <tr><td>Resend</td><td class="num">100/j (3 000/mois)</td><td>API + SMTP relay</td><td>SPF/DKIM via domaine vérifié</td><td><span class="pill check">alternative valable</span> — plus orienté transactionnel que campagnes</td></tr>
+          <tr><td>SMTP boîte pro existante (Wix Mail / autre)</td><td>Très faible, non prévu pour du marketing en masse</td><td>SMTP uniquement</td><td>Dépend du fournisseur</td><td><span class="pill risk">écarté</span> — risque de faire flaguer la messagerie principale de l'entreprise</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="decision">
+      <dl>
+        <dt>Choix</dt><dd>Brevo, plan gratuit, comme <code class="inline">EmailProvider</code> principal.</dd>
+        <dt>Raison</dt><dd>300/jour laisse une marge large sur la cible de 50/j (croissance possible sans changer de fournisseur) ; couvre à la fois l'API transactionnelle et les fonctions campagnes/désinscription attendues en section 31 du brief.</dd>
+        <dt>Alternatives</dt><dd>Resend en secours technique (déjà prévu comme fournisseur interchangeable grâce à l'abstraction).</dd>
+        <dt>Coût</dt><dd>0 € tant que le volume reste sous 300/j.</dd>
+        <dt>Risque</dt><dd>Réputation d'IP partagée en plan gratuit — surveiller le taux de bounce/plainte dès les premiers envois (section 39 du brief).</dd>
+      </dl>
+    </div>
+    <p>Envoi depuis un sous-domaine dédié, ex. <code class="inline">campagnes.myplv.be</code>, avec ses propres enregistrements SPF/DKIM — isole la réputation d'envoi de la messagerie principale de l'entreprise, quel que soit le fournisseur d'email pro actuel.</p>
+  </section>
+
+  <section class="block" id="stack">
+    <div class="section-head"><span class="section-num">10</span><h2>Stack &amp; hébergement — objectif 0 €/mois</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Brique</th><th>Solution</th><th>Pourquoi</th></tr></thead>
+        <tbody>
+          <tr><td>Frontend (<code class="inline">app.myplv.be</code>)</td><td>Cloudflare Pages</td><td>Gratuit, build illimité pour du statique, usage commercial non restreint contrairement à Vercel (voir encadré ci-dessous).</td></tr>
+          <tr><td>API backend</td><td>Cloudflare Workers</td><td>100 000 requêtes/j gratuites, pas de mise en veille (contrairement à un service gratuit classique) — important pour un back-office consulté en heures de bureau.</td></tr>
+          <tr><td>Base de données</td><td>Neon (Postgres serverless)</td><td>0,5 Go / 100 h de calcul gratuits, driver HTTP compatible edge (Workers), pas de purge après inactivité contrairement à d'autres offres gratuites testées.</td></tr>
+          <tr><td>Jobs planifiés (pipeline quotidien, section 47)</td><td>GitHub Actions (cron)</td><td>2 000 minutes/mois gratuites en dépôt privé — largement suffisant pour des jobs quotidiens courts ; déjà dans l'écosystème GitHub du projet.</td></tr>
+          <tr><td>Email</td><td>Brevo</td><td>Voir section 9.</td></tr>
+          <tr><td>Stockage fichiers (exports CSV, etc.)</td><td>Cloudflare R2</td><td>10 Go gratuits, pas de frais de sortie (« egress ») contrairement à S3.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout risk">
+      <span class="label">Écarté — vérifié</span>
+      <p><strong>Vercel (plan Hobby)</strong> a été envisagé puis écarté : ses conditions <a href="https://vercel.com/docs/limits/overview" target="_blank" rel="noopener">interdisent explicitement l'usage commercial</a> sur le plan gratuit — incompatible avec un outil interne d'une entreprise commerciale comme MYPLV, quel que soit le trafic réel.</p>
+    </div>
+    <p>À vérifier avant mise en production réelle : les conditions d'utilisation actuelles de Cloudflare (Pages/Workers) n'affichent pas de restriction équivalente dans la documentation publique consultée, mais cela mérite une relecture directe des CGU au moment du déploiement plutôt qu'une confiance aveugle dans ce rapport.</p>
+  </section>
+
+  <section class="block" id="database">
+    <div class="section-head"><span class="section-num">11</span><h2>Base de données — tables prévues</h2></div>
+    <p>Reprend le schéma minimal du brief (section 61), avec index sur les colonnes de filtrage fréquent (code postal, NACE, score, statut, date de collecte) :</p>
+    <div class="table-scroll">
+      <table style="min-width:640px">
+        <tbody>
+          <tr><td class="mono">users</td><td class="mono">companies</td><td class="mono">contacts</td><td class="mono">prospects</td></tr>
+          <tr><td class="mono">data_sources</td><td class="mono">data_imports</td><td class="mono">nace_codes</td><td class="mono">sectors</td></tr>
+          <tr><td class="mono">geographic_zones</td><td class="mono">blacklists</td><td class="mono">tags</td><td class="mono">scores / scoring_rules</td></tr>
+          <tr><td class="mono">offers</td><td class="mono">campaigns / campaign_steps</td><td class="mono">email_templates</td><td class="mono">email_sends / email_events</td></tr>
+          <tr><td class="mono">email_replies</td><td class="mono">suppression_list</td><td class="mono">automations / automation_runs</td><td class="mono">audit_logs / settings</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="block" id="jobs">
+    <div class="section-head"><span class="section-num">12</span><h2>Automatisations &amp; jobs</h2></div>
+    <p>Pipeline quotidien (horaires configurables, déclenché par GitHub Actions qui appelle des endpoints protégés par un <code class="inline">CRON_SECRET</code>) :</p>
+    <div class="flow">
+      <span class="step">import KBO</span><span class="arrow">→</span>
+      <span class="step">normalisation</span><span class="arrow">→</span>
+      <span class="step">dédoublonnage</span><span class="arrow">→</span>
+      <span class="step">géo + NACE</span><span class="arrow">→</span>
+      <span class="step">blacklist</span><span class="arrow">→</span>
+      <span class="step">scoring</span><span class="arrow">→</span>
+      <span class="step">segmentation</span><span class="arrow">→</span>
+      <span class="step">mode validation</span><span class="arrow">→</span>
+      <span class="step">envoi (≤50/j)</span>
+    </div>
+    <p>Chaque job : idempotent, journalisé dans <code class="inline">automation_runs</code>, protégé contre la double exécution (verrou en base), avec retry et alerte en cas d'échec — conforme aux scénarios d'acceptation du brief (section 79, scénario 8).</p>
+  </section>
+
+  <section class="block" id="rgpd">
+    <div class="section-head"><span class="section-num">13</span><h2>RGPD &amp; sécurité</h2></div>
+    <ul>
+      <li>Base légale envisagée : intérêt légitime (art. 6.1.f RGPD) pour la prospection B2B vers des adresses génériques d'entreprise (<code class="inline">info@</code>, <code class="inline">contact@</code>) — cadre reconnu par la CNIL et l'APD belge, à condition d'informer dès le premier contact et d'offrir une désinscription immédiate.</li>
+      <li>Une adresse nominative (<code class="inline">prenom.nom@</code>) reste une donnée personnelle même en contexte professionnel : traçabilité et droit d'opposition doivent s'appliquer de la même façon.</li>
+      <li>Suppression list globale, contrôlée avant chaque envoi (section 56 du brief) ; conservation/anonymisation après un délai à définir avec toi (le brief suggère une pratique de marché à 3 ans d'inactivité, à valider juridiquement).</li>
+      <li>Secrets hors code (<code class="inline">.env</code>, jamais committé), permissions ADMIN/READER dès le départ, journal d'audit sur toute action destructive.</li>
+    </ul>
+    <div class="callout risk">
+      <span class="label">Rappel du brief, maintenu tel quel</span>
+      <p>Le logiciel ne garantit pas à lui seul la conformité RGPD. Les règles de prospection doivent être validées par un juriste avant tout envoi à grande échelle — je peux construire les garde-fous techniques, pas trancher la question juridique.</p>
+    </div>
+  </section>
+
+  <section class="block" id="couts">
+    <div class="section-head"><span class="section-num">14</span><h2>Coûts</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Élément</th><th>Solution</th><th class="num">Coût mensuel</th></tr></thead>
+        <tbody>
+          <tr><td>Hébergement frontend</td><td>Cloudflare Pages</td><td class="num">0 €</td></tr>
+          <tr><td>Hébergement API</td><td>Cloudflare Workers</td><td class="num">0 €</td></tr>
+          <tr><td>Base de données</td><td>Neon (Postgres)</td><td class="num">0 €</td></tr>
+          <tr><td>Sources entreprises</td><td>KBO/BCE Open Data + CBE API</td><td class="num">0 €</td></tr>
+          <tr><td>Email</td><td>Brevo (≤300/j)</td><td class="num">0 €</td></tr>
+          <tr><td>Jobs planifiés</td><td>GitHub Actions</td><td class="num">0 €</td></tr>
+          <tr><td>Stockage fichiers</td><td>Cloudflare R2</td><td class="num">0 €</td></tr>
+          <tr><td>Nom de domaine / site public</td><td>Existant (Wix, inchangé)</td><td class="num">déjà payé, hors périmètre</td></tr>
+          <tr><td><strong>Total nouveaux coûts</strong></td><td></td><td class="num"><strong>0 €/mois</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Coûts optionnels futurs (non nécessaires au démarrage)</h3>
+    <ul>
+      <li>Passage Brevo payant si le volume d'envoi dépasse durablement 300/j.</li>
+      <li>Neon/Cloudflare payants si le volume de données ou de trafic dépasse les paliers gratuits (probable seulement à plusieurs dizaines de milliers de prospects actifs avec beaucoup d'événements).</li>
+      <li>Enrichissement email payant (Hunter, Dropcontact…) — explicitement hors scope par le brief tant qu'une solution gratuite suffit.</li>
+      <li>2FA / OAuth avancé, monitoring externe payant, si le besoin se confirme.</li>
+    </ul>
+  </section>
+
+  <section class="block" id="risques">
+    <div class="section-head"><span class="section-num">15</span><h2>Risques &amp; limites</h2></div>
+    <ul>
+      <li><strong>Audit du site public incomplet</strong> : sans accès réseau direct à myplv.be depuis cet environnement, la confirmation Wix et l'inventaire SEO restent basés sur l'indexation, pas sur une inspection directe.</li>
+      <li><strong>CBE API (tiers)</strong> n'est pas un service officiel du SPF Économie : dépendance à surveiller, ne pas en faire une source critique irremplaçable.</li>
+      <li><strong>Réputation email</strong> sur IP mutualisée gratuite : à surveiller dès les premiers envois réels, avant tout passage en volume.</li>
+      <li><strong>Paliers gratuits</strong> (Cloudflare, Neon, GitHub Actions) peuvent changer sans préavis — l'architecture doit rester interchangeable (déjà prévu via les abstractions <code class="inline">DataSourceAdapter</code> / <code class="inline">EmailProvider</code>).</li>
+      <li><strong>Conformité RGPD</strong> : cadre technique prêt, validation juridique non incluse (rappel section 13).</li>
+    </ul>
+  </section>
+
+  <section class="block" id="questions">
+    <div class="section-head"><span class="section-num">16</span><h2>Questions ouvertes — j'ai besoin de tes réponses</h2></div>
+    <ol class="qlist">
+      <li><span class="qn">Q1</span>Dépôt GitHub dédié à créer (section 1) — nom souhaité, compte personnel ou organisation ?</li>
+      <li><span class="qn">Q2</span>Qui gère aujourd'hui le DNS de <code class="inline">myplv.be</code> (Wix directement, ou un registrar comme DNS Belgium/Combell/OVH) et as-tu les accès ?</li>
+      <li><span class="qn">Q3</span>Zones géographiques : on garde les 4 zones du brief (Bruxelles-Capitale, Brabant wallon, Hainaut, Namur) comme périmètre de lancement, ou tu veux en ajuster dès le départ ?</li>
+      <li><span class="qn">Q4</span>Validation juridique RGPD : as-tu déjà un contact (avocat, DPO externe) ou faut-il l'anticiper dans le planning ?</li>
+      <li><span class="qn">Q5</span>Nom de sous-domaine préféré : <code class="inline">app.myplv.be</code> ou une autre convention ?</li>
+      <li><span class="qn">Q6</span>Le site public Wix est-il ouvert à une refonte séparée plus tard (hors périmètre immédiat), ou explicitement à ne pas toucher pour l'instant ?</li>
+    </ol>
+  </section>
+
+  <section class="block" id="plan">
+    <div class="section-head"><span class="section-num">17</span><h2>Plan de développement (après validation)</h2></div>
+    <div class="phase">
+      <div class="marker"><div class="num">1</div><div class="line"></div></div>
+      <div class="body"><h4>Fondations</h4><p>Dépôt dédié, schéma base de données, authentification ADMIN/READER, import KBO Open Data (mode manuel d'abord), écran Prospects en lecture.</p></div>
+    </div>
+    <div class="phase">
+      <div class="marker"><div class="num">2</div><div class="line"></div></div>
+      <div class="body"><h4>Qualification</h4><p>Dédoublonnage, géographie, mapping NACE → secteurs, blacklist, moteur de scoring configurable, tags.</p></div>
+    </div>
+    <div class="phase">
+      <div class="marker"><div class="num">3</div><div class="line"></div></div>
+      <div class="body"><h4>Emailing</h4><p>Intégration Brevo, éditeur de templates, séquences, suppression list, mode <strong>Dry Run</strong> obligatoire avant tout mode Production.</p></div>
+    </div>
+    <div class="phase">
+      <div class="marker"><div class="num">4</div><div class="line"></div></div>
+      <div class="body"><h4>Automatisation</h4><p>Pipeline quotidien via GitHub Actions, mode validation manuelle avant passage en automatique complet, dashboard, statistiques.</p></div>
+    </div>
+    <div class="phase">
+      <div class="marker"><div class="num">5</div><div class="line"></div></div>
+      <div class="body"><h4>Mini-CRM &amp; suivi</h4><p>Réponses, statuts, fiche prospect complète, logs et monitoring.</p></div>
+    </div>
+  </section>
+
+  <footer class="end">
+    <p>Aucun code n'a été produit à ce stade, conformément à la consigne. Prochaine étape : tes réponses aux questions ouvertes (section 16), en priorité la question 1 (dépôt GitHub) qui conditionne tout le reste.</p>
+  </footer>
+
+</div>
