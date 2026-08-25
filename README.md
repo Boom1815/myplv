@@ -15,14 +15,19 @@ rapport d'audit). Ce qui existe et fonctionne, testé de bout en bout :
   noire, Secteurs/NACE, Zones géographiques.
 - Frontend (React/Vite, déployable sur Cloudflare Pages) : connexion,
   Dashboard, Prospects (avec tags), Scoring, Liste noire, Secteurs,
-  Géographie — édition réservée ADMIN, lecture seule READER partout où
-  c'est pertinent.
+  Géographie, Offres, Templates email — édition réservée ADMIN, lecture
+  seule READER partout où c'est pertinent.
 - Import KBO/BCE Open Data : filtrage géographique, dédoublonnage par
   numéro BCE, résolution automatique du secteur (NACE → secteur), exclusion
   automatique par liste noire, journalisation.
 - Moteur de scoring configurable (`@myplv/scoring`, 29 tests unitaires) :
   8 règles de départ reprenant l'exemple du brief, recalcul via CLI
   (`npm run score:run`) ou depuis l'écran Scoring (bouton « Recalculer »).
+- Fondations emailing (`@myplv/email`, 17 tests unitaires) : abstraction
+  `EmailProvider` (Brevo / simulation), rendu de templates, désinscription
+  publique (`/api/unsubscribe`) fonctionnelle de bout en bout. La création
+  de campagnes et le déclenchement d'envoi ne sont pas encore construits —
+  volontairement, voir « Prochaines étapes ».
 - Seeds : secteurs métier + règles NACE de départ, règles de scoring de
   départ, utilisateur admin initial.
 
@@ -100,6 +105,7 @@ détail (fichiers attendus, hypothèses à valider sur un export réel).
 
 ## Prochaines étapes
 
-Phase 3 (offres, campagnes, emailing avec Brevo, mode validation/dry run
-avant tout envoi) — nécessite le compte Brevo listé dans `docs/DEPLOY.md`.
-Voir le plan de développement dans le rapport d'audit.
+Création de campagnes (segment, séquence, mode dry_run/production) et
+déclenchement d'envoi réel via Brevo — la pièce la plus sensible (RGPD,
+réputation, limite quotidienne), pas encore construite. Nécessite une clé
+API Brevo valide pour le premier test réel (voir `docs/DEPLOY.md`).
