@@ -1,0 +1,59 @@
+name: Initialiser la base (migrations + seeds)
+
+# Déclenchement manuel uniquement — sert à préparer/mettre à jour une base
+# de production (Neon) depuis les runners GitHub, qui ont un accès réseau
+# que la session Claude Code n'a pas. Les identifiants sensibles passent
+# uniquement par des secrets du dépôt, jamais en clair dans les logs.
+#
+# Secrets requis (Settings → Secrets and variables → Actions) :
+#   DATABASE_URL    — connection string Neon (postgresql://...)
+#   ADMIN_EMAIL     — email du premier compte ADMIN
+#   ADMIN_NAME      — nom affiché de ce compte
+#   ADMIN_PASSWORD  — mot de passe fort (ex. généré avec `openssl rand -base64 24`)
+on:
+  workflow_dispatch:
+    inputs:
+      run_seeds:
+        description: "Lancer aussi les seeds (secteurs, scoring, admin) — désactive si déjà fait"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  db-setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Appliquer les migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run db:migrate
+
+      - name: Seed secteurs + règles NACE
+        if: ${{ inputs.run_seeds }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run seed:sectors -w @myplv/importer
+
+      - name: Seed règles de scoring
+        if: ${{ inputs.run_seeds }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run seed:scoring -w @myplv/importer
+
+      - name: Seed utilisateur admin
+        if: ${{ inputs.run_seeds }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm run seed:admin -w @myplv/importer -- \
+            --email "${{ secrets.ADMIN_EMAIL }}" \
+            --name "${{ secrets.ADMIN_NAME }}" \
+            --password "${{ secrets.ADMIN_PASSWORD }}"
