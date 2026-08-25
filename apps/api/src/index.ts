@@ -6,6 +6,8 @@ import { healthRoutes } from "./routes/health";
 import { authRoutes } from "./routes/auth";
 import { prospectsRoutes } from "./routes/prospects";
 import { scoringRoutes } from "./routes/scoring";
+import { dashboardRoutes } from "./routes/dashboard";
+import { blacklistRoutes } from "./routes/blacklist";
 
 const app = new Hono<AppBindings>();
 
@@ -22,6 +24,8 @@ app.route("/api/health", healthRoutes);
 app.route("/api/auth", authRoutes);
 app.route("/api/prospects", prospectsRoutes);
 app.route("/api/scoring-rules", scoringRoutes);
+app.route("/api/dashboard", dashboardRoutes);
+app.route("/api/blacklist", blacklistRoutes);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

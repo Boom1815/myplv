@@ -11,10 +11,11 @@ rapport d'audit). Ce qui existe et fonctionne, testé de bout en bout :
 - Schéma de base de données complet (29 tables, Drizzle ORM/Postgres).
 - API (Hono, déployable sur Cloudflare Workers) : authentification par
   session (PBKDF2, cookies httpOnly, rate limiting), rôles ADMIN/READER,
-  liste des prospects filtrable/paginée, écran Scoring.
-- Frontend (React/Vite, déployable sur Cloudflare Pages) : écran de
-  connexion, écran Prospects, écran Scoring (règles éditables par un
-  ADMIN, lecture seule pour un READER).
+  liste des prospects filtrable/paginée, écrans Scoring, Dashboard, Liste
+  noire.
+- Frontend (React/Vite, déployable sur Cloudflare Pages) : connexion,
+  Dashboard (répartition par priorité/statut, dernier import), Prospects,
+  Scoring et Liste noire (édition réservée ADMIN, lecture seule READER).
 - Import KBO/BCE Open Data : filtrage géographique, dédoublonnage par
   numéro BCE, résolution automatique du secteur (NACE → secteur), exclusion
   automatique par liste noire, journalisation.
@@ -98,7 +99,7 @@ détail (fichiers attendus, hypothèses à valider sur un export réel).
 
 ## Prochaines étapes
 
-Écrans Secteurs/NACE/Géographie éditables, gestion des tags, tableau de
-bord, puis Phase 3 (offres, campagnes, emailing avec Brevo, mode
-validation/dry run avant tout envoi). Voir le plan de développement dans le
-rapport d'audit.
+Écrans Secteurs/NACE/Géographie éditables, gestion des tags. Puis Phase 3
+(offres, campagnes, emailing avec Brevo, mode validation/dry run avant tout
+envoi) — nécessite le compte Brevo listé dans `docs/DEPLOY.md`. Voir le
+plan de développement dans le rapport d'audit.

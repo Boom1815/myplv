@@ -264,6 +264,135 @@ a {
   margin-bottom: 16px;
 }
 
+/* --- Dashboard --- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.stat-sub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.card-block {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.card-block h3 {
+  font-size: 15px;
+  margin: 0 0 14px;
+}
+
+.tier-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.tier-seg {
+  height: 100%;
+}
+
+.tier-legend {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.tier-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tier-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.status-list li {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-soft);
+}
+
+.import-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.import-meta dt {
+  color: var(--ink-faint);
+}
+
+.import-meta dd {
+  margin: 0;
+  color: var(--ink);
+}
+
 /* --- Prospects table --- */
 
 .page-head {
@@ -369,6 +498,19 @@ tbody tr:hover {
 .score-tier.ignorer {
   background: var(--line-soft);
   color: var(--ink-faint);
+}
+
+.pill-scope {
+  display: inline-flex;
+  align-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 .empty-state {

@@ -32,6 +32,37 @@ export const api = {
       "/scoring-rules/recompute",
       { method: "POST" },
     ),
+  dashboard: () => request<DashboardStats>("/dashboard"),
+  blacklist: () => request<{ data: BlacklistRule[] }>("/blacklist"),
+  addBlacklistRule: (scope: string, value: string, reason?: string) =>
+    request<{ rule: BlacklistRule }>("/blacklist", { method: "POST", body: JSON.stringify({ scope, value, reason }) }),
+  deleteBlacklistRule: (id: string) => request<{ ok: true }>(`/blacklist/${id}`, { method: "DELETE" }),
+};
+
+export type DashboardStats = {
+  prospects: {
+    total: number;
+    byTier: Record<string, number>;
+    byStatus: Record<string, number>;
+    eligibleForEmail: number;
+  };
+  companies: { total: number; withEmail: number };
+  lastImport: {
+    status: string;
+    startedAt: string;
+    finishedAt: string | null;
+    recordsCreated: number;
+    recordsUpdated: number;
+    recordsSkipped: number;
+  } | null;
+};
+
+export type BlacklistRule = {
+  id: string;
+  scope: string;
+  value: string;
+  reason: string | null;
+  createdAt: string;
 };
 
 export type ScoringRule = {
