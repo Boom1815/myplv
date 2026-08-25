@@ -76,7 +76,7 @@ export default function App() {
         </div>
       </header>
       {view === "dashboard" && <Dashboard />}
-      {view === "prospects" && <Prospects />}
+      {view === "prospects" && <Prospects isAdmin={user.role === "admin"} />}
       {view === "scoring" && <Scoring isAdmin={user.role === "admin"} />}
       {view === "blacklist" && <Blacklist isAdmin={user.role === "admin"} />}
       {view === "sectors" && <Sectors isAdmin={user.role === "admin"} />}

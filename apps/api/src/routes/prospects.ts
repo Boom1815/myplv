@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { schema } from "@myplv/db";
 import { createDbForEnv } from "../db";
-import { and, desc, eq, gte, ilike, or, sql, SQL } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, or, sql, SQL } from "drizzle-orm";
 import type { AppBindings } from "../env";
 import { requireAuth } from "../middleware/auth";
 
@@ -72,8 +72,32 @@ prospectsRoutes.get("/", async (c) => {
 
   const [{ count: total }] = await (where ? countQuery.where(where) : countQuery);
 
+  const tagsByProspect = new Map<string, Array<{ id: string; label: string; color: string | null }>>();
+  if (rows.length > 0) {
+    const tagRows = await db
+      .select({
+        prospectId: schema.prospectTags.prospectId,
+        id: schema.tags.id,
+        label: schema.tags.label,
+        color: schema.tags.color,
+      })
+      .from(schema.prospectTags)
+      .innerJoin(schema.tags, eq(schema.tags.id, schema.prospectTags.tagId))
+      .where(
+        inArray(
+          schema.prospectTags.prospectId,
+          rows.map((r) => r.id),
+        ),
+      );
+    for (const t of tagRows) {
+      const list = tagsByProspect.get(t.prospectId) ?? [];
+      list.push({ id: t.id, label: t.label, color: t.color });
+      tagsByProspect.set(t.prospectId, list);
+    }
+  }
+
   return c.json({
-    data: rows,
+    data: rows.map((r) => ({ ...r, tags: tagsByProspect.get(r.id) ?? [] })),
     pagination: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
   });
 });

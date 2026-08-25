@@ -52,7 +52,17 @@ export const api = {
   upsertGeoZone: (zone: { postalCode: string; municipality?: string; province: string; region: string; isActive: boolean }) =>
     request<{ zone: GeoZone }>("/geographic-zones", { method: "POST", body: JSON.stringify(zone) }),
   deleteGeoZone: (id: string) => request<{ ok: true }>(`/geographic-zones/${id}`, { method: "DELETE" }),
+  tags: () => request<{ data: Tag[] }>("/tags"),
+  addTag: (label: string, color?: string) =>
+    request<{ tag: Tag }>("/tags", { method: "POST", body: JSON.stringify({ label, color }) }),
+  deleteTag: (id: string) => request<{ ok: true }>(`/tags/${id}`, { method: "DELETE" }),
+  assignTag: (prospectId: string, tagId: string) =>
+    request<{ ok: true }>(`/tags/assign/${prospectId}`, { method: "POST", body: JSON.stringify({ tagId }) }),
+  unassignTag: (prospectId: string, tagId: string) =>
+    request<{ ok: true }>(`/tags/assign/${prospectId}/${tagId}`, { method: "DELETE" }),
 };
+
+export type Tag = { id: string; label: string; color: string | null };
 
 export type NaceRule = { id: string; sectorId: string; nacePrefix: string; priority: number };
 export type Sector = { id: string; slug: string; label: string; description: string | null; naceRules: NaceRule[] };
@@ -118,6 +128,7 @@ export type Prospect = {
   postalCode: string | null;
   primaryNaceCode: string | null;
   collectedAt: string;
+  tags: Tag[];
 };
 
 export type ProspectsResponse = {
