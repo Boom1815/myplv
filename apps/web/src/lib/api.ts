@@ -24,6 +24,23 @@ export const api = {
   logout: () => request<{ ok: true }>("/auth/logout", { method: "POST" }),
   prospects: (params: Record<string, string>) =>
     request<ProspectsResponse>(`/prospects?${new URLSearchParams(params).toString()}`),
+  scoringRules: () => request<{ data: ScoringRule[] }>("/scoring-rules"),
+  updateScoringRule: (id: string, patch: { points?: number; isActive?: boolean }) =>
+    request<{ rule: ScoringRule }>(`/scoring-rules/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  recomputeScores: () =>
+    request<{ total: number; tierCounts: Record<string, number>; eligibleCount: number }>(
+      "/scoring-rules/recompute",
+      { method: "POST" },
+    ),
+};
+
+export type ScoringRule = {
+  id: string;
+  slug: string;
+  label: string;
+  points: number;
+  isActive: boolean;
+  condition: unknown;
 };
 
 export type Prospect = {

@@ -16,6 +16,8 @@ export const companies = pgTable(
     enterpriseNumber: text("enterprise_number").unique(), // n° BCE, clé de dédoublonnage prioritaire
     name: text("name").notNull(),
     legalForm: text("legal_form"),
+    // TypeOfEnterprise brut KBO : "1" = personne physique (indépendant), "2" = personne morale.
+    enterpriseType: text("enterprise_type"),
     startDate: date("start_date"),
 
     // Adresse

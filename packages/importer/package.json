@@ -6,15 +6,18 @@
   "scripts": {
     "import:kbo": "tsx src/kbo/import-kbo.ts",
     "seed:sectors": "tsx src/seed/seed-sectors.ts",
+    "seed:scoring": "tsx src/seed/seed-scoring-rules.ts",
     "seed:admin": "tsx src/seed/seed-admin.ts",
+    "score:run": "tsx src/scoring/run-scoring.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@myplv/auth": "*",
     "@myplv/db": "*",
+    "@myplv/scoring": "*",
     "csv-parse": "^5.6.0",
     "dotenv": "^16.4.5",
-    "drizzle-orm": "^0.36.4"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "@types/node": "^22.9.3",

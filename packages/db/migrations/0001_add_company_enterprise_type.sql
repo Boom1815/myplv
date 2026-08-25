@@ -1,0 +1,1 @@
+ALTER TABLE "companies" ADD COLUMN "enterprise_type" text;

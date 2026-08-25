@@ -4,6 +4,7 @@ import { createNodeDb, schema } from "@myplv/db";
 import { eq } from "drizzle-orm";
 import { readCsvRows } from "./csv-stream";
 import { resolveGeoFromPostalCode } from "../geo/province-from-postal-code";
+import { resolveSectorId } from "../sectors/resolve-sector";
 import type { AddressRow, ActivityRow, DenominationRow, EnterpriseRow } from "./types";
 
 /**
@@ -103,12 +104,16 @@ async function main() {
     }
   });
 
-  // --- Passe 4 : enterprise.csv -> forme juridique, date de début ---
-  const enterpriseByEntity = new Map<string, { legalForm: string | null; startDate: string | null }>();
+  // --- Passe 4 : enterprise.csv -> forme juridique, type, date de début ---
+  const enterpriseByEntity = new Map<
+    string,
+    { legalForm: string | null; enterpriseType: string | null; startDate: string | null }
+  >();
   await readCsvRows<EnterpriseRow>(path.join(dir, "enterprise.csv"), (row) => {
     if (!allowed.has(row.EnterpriseNumber)) return;
     enterpriseByEntity.set(row.EnterpriseNumber, {
       legalForm: row.JuridicalForm || null,
+      enterpriseType: row.TypeOfEnterprise || null, // "1" personne physique (indépendant) | "2" personne morale
       startDate: row.StartDate || null,
     });
   });
@@ -130,6 +135,15 @@ async function main() {
   // --- Listes noires actives (brief section 24 : exclusion automatique) ---
   const activeBlacklists = await db.select().from(schema.blacklists);
 
+  // --- Règles secteur <-> NACE (brief section 23) ---
+  const sectorNaceRules = await db
+    .select({
+      sectorId: schema.sectorNaceRules.sectorId,
+      nacePrefix: schema.sectorNaceRules.nacePrefix,
+      priority: schema.sectorNaceRules.priority,
+    })
+    .from(schema.sectorNaceRules);
+
   let created = 0;
   let updated = 0;
   let skippedBlacklisted = 0;
@@ -143,6 +157,7 @@ async function main() {
     }
     const naceCode = naceByEntity.get(entityNumber) ?? null;
     const enterprise = enterpriseByEntity.get(entityNumber);
+    const sectorId = resolveSectorId(naceCode, sectorNaceRules);
 
     const isBlacklisted = activeBlacklists.some((b) => {
       if (b.scope === "nace_code" && naceCode) return naceCode.startsWith(b.value);
@@ -161,6 +176,7 @@ async function main() {
       enterpriseNumber: entityNumber,
       name,
       legalForm: enterprise?.legalForm ?? null,
+      enterpriseType: enterprise?.enterpriseType ?? null,
       startDate: enterprise?.startDate ? enterprise.startDate.split("-").reverse().join("-") : null,
       street: address.street,
       houseNumber: address.houseNumber,
@@ -169,6 +185,7 @@ async function main() {
       province: address.province,
       region: address.region,
       primaryNaceCode: naceCode,
+      sectorId,
       dataSourceId: dataSource.id,
       sourceRecordId: entityNumber,
       confidence: "high" as const,

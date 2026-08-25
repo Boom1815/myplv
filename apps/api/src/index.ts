@@ -5,6 +5,7 @@ import { attachSession } from "./middleware/auth";
 import { healthRoutes } from "./routes/health";
 import { authRoutes } from "./routes/auth";
 import { prospectsRoutes } from "./routes/prospects";
+import { scoringRoutes } from "./routes/scoring";
 
 const app = new Hono<AppBindings>();
 
@@ -20,6 +21,7 @@ app.use("*", attachSession);
 app.route("/api/health", healthRoutes);
 app.route("/api/auth", authRoutes);
 app.route("/api/prospects", prospectsRoutes);
+app.route("/api/scoring-rules", scoringRoutes);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

@@ -8,6 +8,13 @@
       "when": 1787667013054,
       "tag": "0000_amused_adam_destine",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787668345709,
+      "tag": "0001_add_company_enterprise_type",
+      "breakpoints": true
     }
   ]
 }

@@ -5,19 +5,24 @@ plateforme privée de prospection automatisée et d'emailing (`app.myplv.be`).
 
 ## Statut
 
-**Phase 1 (fondations) en cours.** Architecture validée le 25/08/2026 (voir
-le rapport d'audit). Ce qui existe et fonctionne, testé de bout en bout :
+**Phases 1 et 2 en cours.** Architecture validée le 25/08/2026 (voir le
+rapport d'audit). Ce qui existe et fonctionne, testé de bout en bout :
 
-- Schéma de base de données complet (28 tables, Drizzle ORM/Postgres).
+- Schéma de base de données complet (29 tables, Drizzle ORM/Postgres).
 - API (Hono, déployable sur Cloudflare Workers) : authentification par
   session (PBKDF2, cookies httpOnly, rate limiting), rôles ADMIN/READER,
-  liste des prospects filtrable/paginée.
+  liste des prospects filtrable/paginée, écran Scoring.
 - Frontend (React/Vite, déployable sur Cloudflare Pages) : écran de
-  connexion + écran Prospects en lecture.
+  connexion, écran Prospects, écran Scoring (règles éditables par un
+  ADMIN, lecture seule pour un READER).
 - Import KBO/BCE Open Data : filtrage géographique, dédoublonnage par
-  numéro BCE, exclusion automatique par liste noire, journalisation.
-- Seeds : secteurs métier + règles NACE de départ, utilisateur admin
-  initial.
+  numéro BCE, résolution automatique du secteur (NACE → secteur), exclusion
+  automatique par liste noire, journalisation.
+- Moteur de scoring configurable (`@myplv/scoring`, 29 tests unitaires) :
+  8 règles de départ reprenant l'exemple du brief, recalcul via CLI
+  (`npm run score:run`) ou depuis l'écran Scoring (bouton « Recalculer »).
+- Seeds : secteurs métier + règles NACE de départ, règles de scoring de
+  départ, utilisateur admin initial.
 
 Rapport d'audit et de faisabilité : [`docs/audit/2026-08-25-audit-faisabilite.html`](docs/audit/2026-08-25-audit-faisabilite.html).
 Comptes externes à créer avant déploiement réel : [`docs/DEPLOY.md`](docs/DEPLOY.md).
@@ -31,7 +36,8 @@ apps/
 packages/
   auth/       Hachage de mot de passe (Web Crypto PBKDF2), portable Workers/Node
   db/         Schéma Drizzle + migrations, clients Postgres (HTTP Neon pour Workers, pg pour Node)
-  importer/   Scripts d'import (KBO Open Data) et de seed, exécutés en Node/GitHub Actions
+  scoring/    Moteur de scoring pur (testable, portable Workers/Node) — brief section 27
+  importer/   Scripts d'import (KBO Open Data), de seed et de scoring, exécutés en Node/GitHub Actions
 docs/
   audit/      Rapport d'audit et de faisabilité
   DEPLOY.md   Comptes externes à créer (Neon, Cloudflare, Brevo) et étapes de déploiement
@@ -50,10 +56,13 @@ npm run db:generate    # si le schéma a changé
 npm run db:migrate     # applique les migrations sur DATABASE_URL
 
 npm run seed:sectors -w @myplv/importer
+npm run seed:scoring -w @myplv/importer
 npm run seed:admin -w @myplv/importer -- --email info@myplv.be --name "Pierre Bataille" --password "..."
 
 npm run api:dev        # http://localhost:8787
 npm run web:dev         # http://localhost:5173 (proxy /api vers l'API locale)
+
+npm run test            # tests unitaires (moteur de scoring)
 ```
 
 L'API locale (`dev-server.ts`) parle à Postgres en TCP standard (driver
@@ -66,6 +75,7 @@ Drizzle sont identiques des deux côtés (voir `apps/api/src/db.ts`).
 
 ```bash
 npm run import:kbo -- --dir ./data/kbo-raw
+npm run score:run -w @myplv/importer   # recalcule les scores après import
 ```
 
 Voir [`packages/importer/README.md`](packages/importer/README.md) pour le
@@ -86,8 +96,9 @@ détail (fichiers attendus, hypothèses à valider sur un export réel).
   un professionnel du droit. Contact RGPD désigné : Pierre Bataille
   (info@myplv.be).
 
-## Prochaines étapes (Phase 2)
+## Prochaines étapes
 
-Moteur de scoring (brief section 27), écran Secteurs/NACE/Géographie
-éditable, mode validation avant campagne, désinscription/suppression list
-côté public. Voir le plan de développement dans le rapport d'audit.
+Écrans Secteurs/NACE/Géographie éditables, gestion des tags, tableau de
+bord, puis Phase 3 (offres, campagnes, emailing avec Brevo, mode
+validation/dry run avant tout envoi). Voir le plan de développement dans le
+rapport d'audit.
