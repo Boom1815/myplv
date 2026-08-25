@@ -239,13 +239,13 @@
     <p class="subtitle">Phase 0 : audit de l'existant, des sources de données et des options techniques, avant toute décision d'architecture ou ligne de code.</p>
     <div class="meta-row">
       <span><b>Préparé pour</b> info@myplv.be</span>
-      <span><b>Date</b> 25 août 2026</span>
-      <span><b>Statut</b> aucune ligne de code produite — conforme à la consigne</span>
+      <span><b>Date</b> 25 août 2026 — mis à jour le 25 août 2026</span>
+      <span><b>Statut</b> architecture validée — aucune ligne de code applicative produite</span>
     </div>
-    <div class="status-banner">
+    <div class="status-banner" style="background:var(--good-soft); border-color:color-mix(in srgb, var(--good) 35%, var(--line));">
       <div>
-        <strong>À traiter en premier</strong><br>
-        L'environnement de développement connecté (dépôt <code class="inline">Boom1815/Tof-Box</code>) est une application existante sans rapport avec MYPLV — voir <a href="#depot">section 1</a>. Aucun fichier n'y a été modifié. La création d'un dépôt dédié a été tentée et bloquée par les permissions GitHub actuelles : une action de ta part est nécessaire avant la suite.
+        <strong style="color:var(--good);">Décisions validées le 25/08</strong><br>
+        Dépôt dédié créé (<code class="inline">Boom1815/myplv</code>), sous-domaine fixé à <code class="inline">app.myplv.be</code>, DNS confirmé accessible (registrar tiers), périmètre 4 zones confirmé, site Wix hors périmètre confirmé — détail en <a href="#questions">section 16</a>. Prochaine étape : Phase 1 (fondations techniques).
       </div>
     </div>
   </div>
@@ -276,21 +276,17 @@
 <div class="wrap">
 
   <section class="block" id="depot">
-    <div class="section-head"><span class="section-num">01</span><h2>Dépôt de code — constat &amp; action requise</h2></div>
-    <p class="lede">Avant l'audit du site, un constat factuel sur l'environnement dans lequel cette session s'exécute.</p>
-    <div class="callout risk">
-      <span class="label">Constat</span>
-      <p>Le dépôt GitHub connecté à cette session (<code class="inline">Boom1815/Tof-Box</code>, branche <code class="inline">claude/myplv-refonte-prospection-43gqgh</code>) contient déjà une application complète, en production, sans aucun rapport avec MYPLV : « Tof-Box », une app grand public avec parrainage, coffre-fort numérique, partage d'objets, TofMeet, facturation Stripe, et des builds iOS/Android via Capacitor (voir <code class="inline">codemagic.yaml</code>, <code class="inline">backend/referral_routes.py</code>, <code class="inline">backend/vault_routes.py</code>, etc.).</p>
+    <div class="section-head"><span class="section-num">01</span><h2>Dépôt de code — constat &amp; résolution</h2></div>
+    <p class="lede">Avant l'audit du site, un constat factuel sur l'environnement dans lequel cette session s'est exécutée.</p>
+    <div class="callout">
+      <span class="label">Constat initial</span>
+      <p>Le dépôt GitHub connecté par défaut à cette session (<code class="inline">Boom1815/Tof-Box</code>) contenait déjà une application complète, en production, sans aucun rapport avec MYPLV : « Tof-Box », une app grand public avec parrainage, coffre-fort numérique, partage d'objets, TofMeet, facturation Stripe, et des builds iOS/Android via Capacitor.</p>
     </div>
-    <p>Construire la plateforme MYPLV à l'intérieur de ce dépôt aurait mélangé deux produits sans lien, avec un vrai risque d'écraser du code de production existant — contraire au principe n°13 du brief (« ne pas supprimer l'existant sans plan de migration »). J'ai donc posé la question avant d'agir : tu as choisi <strong>un nouveau dépôt dédié</strong> à MYPLV.</p>
-    <p>J'ai tenté de le créer automatiquement (<code class="inline">myplv-platform</code>, privé, sous ton compte GitHub <code class="inline">Boom1815</code>) : l'API GitHub a refusé la création avec une erreur <span class="mono">403 — Resource not accessible by integration</span>. L'intégration GitHub de cette session n'a que des droits de lecture/écriture sur des dépôts déjà autorisés, pas de droit de <em>création</em> de dépôt.</p>
-    <h3>Ce qu'il te reste à faire</h3>
-    <ol>
-      <li>Créer un dépôt GitHub vide (ex. <code class="inline">myplv-platform</code>), sous ton compte ou une organisation dédiée.</li>
-      <li>L'autoriser pour Claude Code (paramètres GitHub de l'intégration, ou en le désignant dans une prochaine session).</li>
-      <li>Je pourrai alors y pousser ce rapport, l'architecture, puis le code — sans jamais toucher à Tof-Box.</li>
-    </ol>
-    <p>En attendant, rien n'a été écrit dans Tof-Box. Ce rapport t'est livré directement ci-dessous, et je peux te l'envoyer en fichier séparé.</p>
+    <p>Construire la plateforme MYPLV à l'intérieur de ce dépôt aurait mélangé deux produits sans lien, avec un vrai risque d'écraser du code de production existant — contraire au principe n°13 du brief (« ne pas supprimer l'existant sans plan de migration »). La question a été posée avant d'agir : <strong>un nouveau dépôt dédié</strong> a été retenu.</p>
+    <div class="callout good">
+      <span class="label">Résolu</span>
+      <p>Le dépôt <a href="https://github.com/Boom1815/myplv" target="_blank" rel="noopener"><code class="inline">Boom1815/myplv</code></a> a été créé, ce rapport y a été poussé sur <code class="inline">main</code>. Tof-Box n'a été touché à aucun moment. Tout le développement à venir se fait dans ce nouveau dépôt.</p>
+    </div>
   </section>
 
   <section class="block" id="resume">
@@ -298,11 +294,11 @@
     <p class="lede">Ce que je recommande, en une minute de lecture.</p>
     <ul>
       <li><strong>Ne pas toucher au site Wix existant dans un premier temps.</strong> Le reconstruire n'apporte aucun bénéfice technique pour le projet de prospection, coûte du temps de conception/contenu, et fait courir un risque SEO évitable. À réévaluer plus tard, séparément.</li>
-      <li><strong>Construire la plateforme de prospection comme application séparée</strong>, sur un sous-domaine (ex. <code class="inline">app.myplv.be</code> ou <code class="inline">prospection.myplv.be</code>), pointé par un enregistrement DNS CNAME géré depuis Wix vers le nouvel hébergeur — techniquement confirmé possible sans quitter Wix (<a href="https://support.wix.com/en/article/connecting-a-subdomain-to-an-external-resource" target="_blank" rel="noopener">doc Wix</a>).</li>
+      <li><strong>Construire la plateforme de prospection comme application séparée</strong>, sur <code class="inline">app.myplv.be</code> — nom confirmé — pointé par un enregistrement DNS CNAME géré depuis le registrar tiers vers le nouvel hébergeur, sans quitter Wix pour le site public.</li>
       <li><strong>Sources de prospects :</strong> Open Data KBO/BCE (fichier complet + mises à jour mensuelles, gratuit, avec inscription) comme socle, complété par l'API publique gratuite CBE API pour les recherches ponctuelles.</li>
       <li><strong>Email :</strong> Brevo, plan gratuit — 300 emails/jour (6× la cible de 50/j), SPF/DKIM/DMARC inclus, API + SMTP, sans carte bancaire.</li>
       <li><strong>Stack et hébergement à 0 €/mois</strong> réalistes : Cloudflare Pages + Workers (frontend + API, usage commercial autorisé — <em>à confirmer dans les CGU avant mise en production</em>), base Postgres gérée par Neon, jobs planifiés via GitHub Actions.</li>
-      <li><strong>Blocage immédiat :</strong> il me faut un dépôt GitHub dédié (section 1) avant de produire la moindre ligne de code.</li>
+      <li><strong>Toutes les décisions ci-dessus sont validées</strong> (25/08) — voir <a href="#questions">section 16</a>. Prêt à démarrer la Phase 1.</li>
     </ul>
   </section>
 
@@ -331,16 +327,12 @@
 
   <section class="block" id="hebergement">
     <div class="section-head"><span class="section-num">04</span><h2>Hébergement, domaine, DNS</h2></div>
-    <p>Même limite d'accès réseau qu'en section 3 : je ne peux pas interroger le WHOIS du domaine ni les enregistrements DNS de <code class="inline">myplv.be</code> depuis cet environnement. C'est une vérification de 5 minutes que je te propose de faire (ou de me transmettre) :</p>
-    <ul>
-      <li><strong>Registrar / DNS :</strong> qui gère <code class="inline">myplv.be</code> — Wix, ou un registrar tiers (ex. <a href="https://dns.be" target="_blank" rel="noopener">DNS Belgium</a>, OVH, Combell…) qui pointe ensuite vers Wix ? Cela change qui peut ajouter les enregistrements DNS nécessaires plus tard.</li>
-      <li><strong>Accès au panneau Wix :</strong> qui a les identifiants (toi, une ancienne agence) ?</li>
-      <li><strong>Plan Wix actuel :</strong> Wix a plusieurs formules — utile pour savoir si l'email professionnel (ex. <code class="inline">info@myplv.be</code>) est géré par Wix ou par un tiers, ce qui influence le choix de fournisseur d'email marketing (section 9).</li>
-    </ul>
+    <p>Cette session n'a pas d'accès réseau direct pour interroger le WHOIS ou les enregistrements DNS de <code class="inline">myplv.be</code> — confirmé par toi à la place :</p>
     <div class="callout good">
-      <span class="label">Bonne nouvelle confirmée</span>
-      <p>Même sans savoir qui héberge le DNS aujourd'hui, Wix documente officiellement la possibilité de connecter un sous-domaine (ex. <code class="inline">app.myplv.be</code>) vers une <em>ressource externe</em> via un enregistrement CNAME, que le domaine soit pointé vers Wix ou géré ailleurs. Le site public peut donc rester où il est pendant qu'on construit la plateforme de prospection ailleurs — sans étape de migration risquée.</p>
+      <span class="label">Confirmé le 25/08</span>
+      <p><strong>Le DNS de myplv.be est géré chez un registrar tiers</strong> (pas directement chez Wix), et tu as les accès à ce panneau. C'est la configuration la plus simple pour ce projet : tu pourras ajouter le CNAME <code class="inline">app.myplv.be</code> → hébergeur de la plateforme, sans jamais toucher à la configuration Wix elle-même.</p>
     </div>
+    <p>Reste à faire au moment du déploiement (pas maintenant) : ajouter l'enregistrement CNAME une fois l'hébergeur de <code class="inline">app.myplv.be</code> choisi et provisionné (Cloudflare Pages/Workers, section 10), et vérifier le plan Wix actuel pour savoir si <code class="inline">info@myplv.be</code> est géré par Wix ou par un tiers (utile pour isoler proprement la réputation d'envoi des campagnes, section 9).</p>
   </section>
 
   <section class="block" id="seo">
@@ -391,7 +383,8 @@
         <dt>Raison</dt><dd>Isole totalement le risque : le projet de prospection n'a aucune dépendance au site public, et inversement. Convention <code class="inline">app.</code> cohérente avec l'évolution future (CRM, devis, facturation — section 76).</dd>
         <dt>Alternatives</dt><dd>Option A (équivalente, nom de sous-domaine différent) ; Option B écartée sauf si une refonte du site public est décidée pour des raisons indépendantes (design, conversion) — projet distinct, à traiter séparément.</dd>
         <dt>Coût</dt><dd>0 € — un sous-domaine ne coûte rien à créer.</dd>
-        <dt>Risque</dt><dd>Faible. Le seul point d'attention est l'accès au panneau DNS (section 4).</dd>
+        <dt>Risque</dt><dd>Faible. Accès DNS confirmé disponible (section 4).</dd>
+        <dt>Statut</dt><dd><span class="pill free">validé le 25/08</span></dd>
       </dl>
     </div>
   </section>
@@ -404,7 +397,8 @@
       <span class="step">app.myplv.be (nouveau, dépôt dédié)</span>
     </div>
     <p><code class="inline">app.myplv.be</code> contiendra : Dashboard, Prospects, Entreprises, Contacts, Sources, NACE, Secteurs, Géographie, Scoring, Offres, Campagnes, Emails, Automatisations, Réponses, Statistiques, Suppression list, Logs, Paramètres — la liste complète du brief (section 14/80), sous authentification, avec les rôles ADMIN / READER dès le départ.</p>
-    <p>Le site public garde sa structure Wix actuelle (Accueil, Graphisme, Impression, PLV, Web, Réalisations, Services, À propos, Contact) sans modification dans cette phase.</p>
+    <p>Le site public garde sa structure Wix actuelle (Accueil, Graphisme, Impression, PLV, Web, Réalisations, Services, À propos, Contact) sans modification dans cette phase — <span class="pill free">confirmé le 25/08</span>.</p>
+    <p><strong>Périmètre géographique de lancement confirmé</strong> — <span class="pill free">confirmé le 25/08</span> : Bruxelles-Capitale, Brabant wallon, Hainaut, Namur, avec la hiérarchie Région → Province → Commune → Code postal configurable pour ajuster ou étendre plus tard sans changement de schéma.</p>
   </section>
 
   <section class="block" id="donnees">
@@ -586,18 +580,19 @@
 
   <section class="block" id="questions">
     <div class="section-head"><span class="section-num">16</span><h2>Questions ouvertes — j'ai besoin de tes réponses</h2></div>
+    <p class="lede">Mise à jour du 25/08 — 5 des 6 questions initiales sont tranchées ; il n'en reste qu'une.</p>
     <ol class="qlist">
-      <li><span class="qn">Q1</span>Dépôt GitHub dédié à créer (section 1) — nom souhaité, compte personnel ou organisation ?</li>
-      <li><span class="qn">Q2</span>Qui gère aujourd'hui le DNS de <code class="inline">myplv.be</code> (Wix directement, ou un registrar comme DNS Belgium/Combell/OVH) et as-tu les accès ?</li>
-      <li><span class="qn">Q3</span>Zones géographiques : on garde les 4 zones du brief (Bruxelles-Capitale, Brabant wallon, Hainaut, Namur) comme périmètre de lancement, ou tu veux en ajuster dès le départ ?</li>
-      <li><span class="qn">Q4</span>Validation juridique RGPD : as-tu déjà un contact (avocat, DPO externe) ou faut-il l'anticiper dans le planning ?</li>
-      <li><span class="qn">Q5</span>Nom de sous-domaine préféré : <code class="inline">app.myplv.be</code> ou une autre convention ?</li>
-      <li><span class="qn">Q6</span>Le site public Wix est-il ouvert à une refonte séparée plus tard (hors périmètre immédiat), ou explicitement à ne pas toucher pour l'instant ?</li>
+      <li><span class="qn">Q1</span><div><span class="pill free">résolu</span> Dépôt GitHub dédié → <a href="https://github.com/Boom1815/myplv" target="_blank" rel="noopener"><code class="inline">Boom1815/myplv</code></a>, créé et initialisé.</div></li>
+      <li><span class="qn">Q2</span><div><span class="pill free">résolu</span> DNS de <code class="inline">myplv.be</code> géré chez un registrar tiers, accès confirmés disponibles.</div></li>
+      <li><span class="qn">Q3</span><div><span class="pill free">résolu</span> Périmètre de lancement confirmé : Bruxelles-Capitale, Brabant wallon, Hainaut, Namur.</div></li>
+      <li><span class="qn">Q4</span><div><span class="pill check">ouverte</span> Validation juridique RGPD : as-tu déjà un contact (avocat, DPO externe) ou faut-il l'anticiper dans le planning ? Ne bloque pas le développement — bloque uniquement l'envoi de campagnes réelles en volume.</div></li>
+      <li><span class="qn">Q5</span><div><span class="pill free">résolu</span> Sous-domaine fixé à <code class="inline">app.myplv.be</code>.</div></li>
+      <li><span class="qn">Q6</span><div><span class="pill free">résolu</span> Site Wix confirmé hors périmètre pour l'instant.</div></li>
     </ol>
   </section>
 
   <section class="block" id="plan">
-    <div class="section-head"><span class="section-num">17</span><h2>Plan de développement (après validation)</h2></div>
+    <div class="section-head"><span class="section-num">17</span><h2>Plan de développement</h2></div>
     <div class="phase">
       <div class="marker"><div class="num">1</div><div class="line"></div></div>
       <div class="body"><h4>Fondations</h4><p>Dépôt dédié, schéma base de données, authentification ADMIN/READER, import KBO Open Data (mode manuel d'abord), écran Prospects en lecture.</p></div>
@@ -621,7 +616,7 @@
   </section>
 
   <footer class="end">
-    <p>Aucun code n'a été produit à ce stade, conformément à la consigne. Prochaine étape : tes réponses aux questions ouvertes (section 16), en priorité la question 1 (dépôt GitHub) qui conditionne tout le reste.</p>
+    <p>Aucun code applicatif n'a été produit à ce stade, conformément à la consigne. Architecture et choix techniques validés le 25/08 — il ne reste que la question RGPD (Q4) ouverte, sans effet bloquant sur le démarrage du développement.</p>
   </footer>
 
 </div>

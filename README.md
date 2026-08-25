@@ -5,8 +5,9 @@ plateforme privée de prospection automatisée et d'emailing (`app.myplv.be`).
 
 ## Statut
 
-**Phase 0 — Audit.** Aucun code applicatif n'a encore été écrit, conformément au brief du
-projet : la phase d'audit et de validation d'architecture précède le développement.
+**Architecture validée (25/08/2026), Phase 1 à démarrer.** Aucun code applicatif n'a
+encore été écrit — la phase d'audit et de validation d'architecture précède le
+développement, conformément au brief du projet. Sous-domaine cible : `app.myplv.be`.
 
 Rapport d'audit et de faisabilité : [`docs/audit/2026-08-25-audit-faisabilite.html`](docs/audit/2026-08-25-audit-faisabilite.html)
 (ouvrir dans un navigateur, ou publié en artifact partageable).
