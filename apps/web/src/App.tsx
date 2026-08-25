@@ -7,8 +7,10 @@ import { Scoring } from "./pages/Scoring";
 import { Blacklist } from "./pages/Blacklist";
 import { Sectors } from "./pages/Sectors";
 import { GeographicZones } from "./pages/GeographicZones";
+import { Offers } from "./pages/Offers";
+import { EmailTemplates } from "./pages/EmailTemplates";
 
-type View = "dashboard" | "prospects" | "scoring" | "blacklist" | "sectors" | "zones";
+type View = "dashboard" | "prospects" | "scoring" | "blacklist" | "sectors" | "zones" | "offers" | "templates";
 
 export default function App() {
   const [user, setUser] = useState<CurrentUser | null | undefined>(undefined); // undefined = chargement initial
@@ -66,6 +68,13 @@ export default function App() {
           <button className={view === "zones" ? "active" : ""} onClick={() => setView("zones")}>
             Géographie
           </button>
+          <span className="nav-sep" />
+          <button className={view === "offers" ? "active" : ""} onClick={() => setView("offers")}>
+            Offres
+          </button>
+          <button className={view === "templates" ? "active" : ""} onClick={() => setView("templates")}>
+            Templates
+          </button>
         </nav>
         <div className="user">
           <span className="role-pill">{user.role === "admin" ? "Admin" : "Lecture seule"}</span>
@@ -81,6 +90,8 @@ export default function App() {
       {view === "blacklist" && <Blacklist isAdmin={user.role === "admin"} />}
       {view === "sectors" && <Sectors isAdmin={user.role === "admin"} />}
       {view === "zones" && <GeographicZones isAdmin={user.role === "admin"} />}
+      {view === "offers" && <Offers isAdmin={user.role === "admin"} />}
+      {view === "templates" && <EmailTemplates isAdmin={user.role === "admin"} />}
     </div>
   );
 }

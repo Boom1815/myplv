@@ -60,6 +60,43 @@ export const api = {
     request<{ ok: true }>(`/tags/assign/${prospectId}`, { method: "POST", body: JSON.stringify({ tagId }) }),
   unassignTag: (prospectId: string, tagId: string) =>
     request<{ ok: true }>(`/tags/assign/${prospectId}/${tagId}`, { method: "DELETE" }),
+  offers: () => request<{ data: Offer[] }>("/offers"),
+  addOffer: (offer: Partial<Offer> & { name: string }) =>
+    request<{ offer: Offer }>("/offers", { method: "POST", body: JSON.stringify(offer) }),
+  updateOffer: (id: string, patch: Partial<Offer>) =>
+    request<{ offer: Offer }>(`/offers/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteOffer: (id: string) => request<{ ok: true }>(`/offers/${id}`, { method: "DELETE" }),
+  emailTemplates: () => request<{ data: EmailTemplate[]; availableVariables: string[] }>("/email-templates"),
+  emailTemplate: (id: string) =>
+    request<{ template: EmailTemplate; preview: { subject: string; bodyHtml: string }; unknownVariables: string[] }>(
+      `/email-templates/${id}`,
+    ),
+  addEmailTemplate: (t: { name: string; subject: string; bodyHtml: string }) =>
+    request<{ template: EmailTemplate }>("/email-templates", { method: "POST", body: JSON.stringify(t) }),
+  updateEmailTemplate: (id: string, patch: { name?: string; subject?: string; bodyHtml?: string }) =>
+    request<{ template: EmailTemplate }>(`/email-templates/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteEmailTemplate: (id: string) => request<{ ok: true }>(`/email-templates/${id}`, { method: "DELETE" }),
+};
+
+export type Offer = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  sectorId: string | null;
+  pitch: string | null;
+  advantage: string | null;
+  ctaLabel: string | null;
+  landingUrl: string | null;
+};
+
+export type EmailTemplate = {
+  id: string;
+  slug: string;
+  name: string;
+  subject: string;
+  bodyHtml: string;
+  updatedAt: string;
 };
 
 export type Tag = { id: string; label: string; color: string | null };

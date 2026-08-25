@@ -11,6 +11,9 @@ import { blacklistRoutes } from "./routes/blacklist";
 import { sectorsRoutes } from "./routes/sectors";
 import { geoZonesRoutes } from "./routes/geographic-zones";
 import { tagsRoutes } from "./routes/tags";
+import { offersRoutes } from "./routes/offers";
+import { emailTemplatesRoutes } from "./routes/email-templates";
+import { unsubscribeRoutes } from "./routes/unsubscribe";
 
 const app = new Hono<AppBindings>();
 
@@ -32,6 +35,9 @@ app.route("/api/blacklist", blacklistRoutes);
 app.route("/api/sectors", sectorsRoutes);
 app.route("/api/geographic-zones", geoZonesRoutes);
 app.route("/api/tags", tagsRoutes);
+app.route("/api/offers", offersRoutes);
+app.route("/api/email-templates", emailTemplatesRoutes);
+app.route("/api/unsubscribe", unsubscribeRoutes);
 
 app.notFound((c) => c.json({ error: "not_found" }, 404));
 

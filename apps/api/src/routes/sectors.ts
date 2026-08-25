@@ -4,19 +4,11 @@ import { eq } from "drizzle-orm";
 import type { AppBindings } from "../env";
 import { createDbForEnv } from "../db";
 import { requireAuth, requireAdmin } from "../middleware/auth";
+import { slugify } from "../lib/slugify";
 
 export const sectorsRoutes = new Hono<AppBindings>();
 
 sectorsRoutes.use("*", requireAuth);
-
-function slugify(label: string): string {
-  return label
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // retire les diacritiques (accents) après décomposition NFD
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
 
 /** GET /api/sectors — secteurs avec leurs règles NACE (brief section 23), lecture ADMIN+READER. */
 sectorsRoutes.get("/", async (c) => {
