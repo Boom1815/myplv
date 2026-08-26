@@ -34,6 +34,10 @@ rapport d'audit). Ce qui existe et fonctionne, testé de bout en bout :
 Rapport d'audit et de faisabilité : [`docs/audit/2026-08-25-audit-faisabilite.html`](docs/audit/2026-08-25-audit-faisabilite.html).
 Comptes externes à créer avant déploiement réel : [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
+Aperçu en ligne (Cloudflare Workers + Neon) :
+- Frontend : https://myplv-web.green-moon-15e1.workers.dev
+- API : https://myplv.green-moon-15e1.workers.dev
+
 ## Structure du dépôt
 
 ```
