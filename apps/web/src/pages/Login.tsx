@@ -26,7 +26,7 @@ export function Login({ onLoggedIn }: { onLoggedIn: (user: CurrentUser) => void 
       <div className="login-card">
         <h1>MYPLV</h1>
         <p className="lede">Plateforme de prospection — accès privé.</p>
-        {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error" style={{ whiteSpace: "pre-wrap" }}>{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="field">
             <label htmlFor="email">Email</label>
