@@ -43,7 +43,17 @@ app.notFound((c) => c.json({ error: "not_found" }, 404));
 
 app.onError((err, c) => {
   console.error(err);
-  return c.json({ error: "internal_error", message: "Une erreur est survenue." }, 500);
+  // Diagnostic temporaire (aucun trafic réel encore) : renvoie l'erreur
+  // exacte au lieu de la masquer, le temps de finir la mise en route en
+  // production. À revenir au message générique une fois le login validé.
+  return c.json(
+    {
+      error: "internal_error",
+      message: "Une erreur est survenue.",
+      debug: err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : String(err),
+    },
+    500,
+  );
 });
 
 export default app;
