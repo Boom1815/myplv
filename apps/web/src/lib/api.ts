@@ -4,8 +4,15 @@ export type CurrentUser = {
   role: "admin" | "reader";
 };
 
+// En production sur un domaine unique (app.myplv.be), l'API est servie en
+// relatif (/api/...) — c'est le cas par défaut. Pour un aperçu où frontend
+// (Cloudflare Pages) et API (Cloudflare Workers) vivent sur deux domaines
+// distincts (*.pages.dev / *.workers.dev), VITE_API_BASE_URL pointe vers
+// l'URL complète du Worker, injectée au moment du build.
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE_URL}/api${path}`, {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     ...options,

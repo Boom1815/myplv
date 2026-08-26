@@ -7,6 +7,8 @@ export type Env = {
   APP_URL: string;
   SESSION_COOKIE_NAME: string;
   SESSION_TTL_HOURS: string;
+  /** "Lax" (défaut, production même domaine) | "None" (aperçu multi-domaines — voir routes/auth.ts). */
+  SESSION_COOKIE_SAMESITE?: string;
   EMAIL_PROVIDER?: string;
   BREVO_API_KEY?: string;
   EMAIL_FROM_ADDRESS?: string;

@@ -53,7 +53,11 @@ authRoutes.post("/login", async (c) => {
   setCookie(c, c.env.SESSION_COOKIE_NAME || "myplv_session", token, {
     httpOnly: true,
     secure: true,
-    sameSite: "Lax",
+    // "Lax" en production (front et API sur le même domaine, app.myplv.be).
+    // "None" uniquement pour un aperçu où front (Pages) et API (Workers)
+    // vivent sur deux domaines distincts — jamais le défaut, à activer
+    // explicitement via la variable d'environnement.
+    sameSite: (c.env.SESSION_COOKIE_SAMESITE as "Lax" | "Strict" | "None" | undefined) || "Lax",
     path: "/",
     expires: expiresAt,
   });
