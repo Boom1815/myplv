@@ -38,6 +38,9 @@ Aperçu en ligne (Cloudflare Workers + Neon) :
 - Frontend : https://myplv-web.green-moon-15e1.workers.dev
 - API : https://myplv.green-moon-15e1.workers.dev
 
+(Build command Cloudflare pour le frontend : `npm ci && npm run build -w @myplv/web`,
+variable de build `VITE_API_BASE_URL` pointant vers l'URL de l'API ci-dessus.)
+
 ## Structure du dépôt
 
 ```
