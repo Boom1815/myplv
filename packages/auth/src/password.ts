@@ -4,7 +4,12 @@
  * ne fonctionnent pas dans le runtime Workers).
  */
 
-const ITERATIONS = 210_000; // recommandation OWASP 2024+ pour PBKDF2-SHA256
+// La recommandation OWASP 2024+ pour PBKDF2-SHA256 est 210 000 itérations,
+// mais l'implémentation Web Crypto de Cloudflare Workers plafonne PBKDF2 à
+// 100 000 itérations (contrairement à Node/aux navigateurs) — au-delà, elle
+// lève "NotSupportedError: Pbkdf2 failed: iteration counts above 100000 are
+// not supported". 100 000 est donc le maximum utilisable, portable Workers/Node.
+const ITERATIONS = 100_000;
 const KEY_LENGTH_BITS = 256;
 
 function toHex(buffer: ArrayBuffer): string {
