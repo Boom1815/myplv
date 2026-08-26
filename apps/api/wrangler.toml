@@ -3,6 +3,16 @@ main = "src/index.ts"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Logs d'invocation (Cloudflare dashboard) — utile pour diagnostiquer les
+# erreurs 500 en production. Rien de sensible n'y est journalisé au-delà de
+# ce que fait déjà onError() dans src/index.ts.
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 # Variables non-sensibles. Les secrets (DATABASE_URL, AUTH_SECRET,
 # BREVO_API_KEY, CRON_SECRET...) se posent avec `wrangler secret put <NOM>`,
 # jamais dans ce fichier ni dans le code.
