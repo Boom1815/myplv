@@ -21,6 +21,12 @@ APP_URL = "https://app.myplv.be"
 SESSION_COOKIE_NAME = "myplv_session"
 SESSION_TTL_HOURS = "168"
 EMAIL_DAILY_LIMIT = "50"
+# "None" tant que le frontend (myplv-web.*.workers.dev) et l'API
+# (myplv.*.workers.dev) vivent sur deux domaines distincts — sinon le
+# cookie de session est refusé par le navigateur après un login pourtant
+# réussi. À repasser sur "Lax" (ou retirer, "Lax" est le défaut dans
+# routes/auth.ts) une fois les deux servis depuis app.myplv.be.
+SESSION_COOKIE_SAMESITE = "None"
 
 # À décommenter une fois le sous-domaine app.myplv.be pointé (voir section 4
 # du rapport d'audit) :
