@@ -52,7 +52,24 @@ type TextBlock = { id: string; kind: "text"; html: string; align: Align; role?: 
 type ImageBlock = { id: string; kind: "image"; src: string; width: number | null; align: Align; href: string };
 type ButtonBlock = { id: string; kind: "button"; label: string; href: string; align: Align; bg: string; color: string };
 type DividerBlock = { id: string; kind: "divider" };
-type Block = TextBlock | ImageBlock | ButtonBlock | DividerBlock;
+type SpacerBlock = { id: string; kind: "spacer"; height: number };
+type SocialBlock = { id: string; kind: "social"; align: Align; links: Record<string, string> };
+type Block = TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | SocialBlock;
+
+/** Réseaux proposés dans le bloc "Réseaux sociaux" — un champ URL par réseau, vide = pas affiché à l'envoi. */
+const SOCIAL_NETWORKS: { key: string; name: string; label: string; bg: string; placeholder: string }[] = [
+  { key: "facebook", name: "Facebook", label: "f", bg: "#1877F2", placeholder: "https://facebook.com/…" },
+  { key: "instagram", name: "Instagram", label: "IG", bg: "#C13584", placeholder: "https://instagram.com/…" },
+  { key: "linkedin", name: "LinkedIn", label: "in", bg: "#0A66C2", placeholder: "https://linkedin.com/company/…" },
+  { key: "x", name: "X (Twitter)", label: "X", bg: "#000000", placeholder: "https://x.com/…" },
+  { key: "youtube", name: "YouTube", label: "YT", bg: "#FF0000", placeholder: "https://youtube.com/…" },
+];
+
+/** Icône ronde encodée en data URI (image, pas balise <svg> — bien plus fiable dans les clients email). */
+function socialIconDataUri(label: string, bg: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="${bg}"/><text x="16" y="21" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#ffffff" text-anchor="middle">${label}</text></svg>`;
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+}
 
 let blockIdCounter = 0;
 function newId(): string {
@@ -75,6 +92,14 @@ function defaultButtonBlock(): ButtonBlock {
 }
 function defaultDividerBlock(): DividerBlock {
   return { id: newId(), kind: "divider" };
+}
+function defaultSpacerBlock(): SpacerBlock {
+  return { id: newId(), kind: "spacer", height: 24 };
+}
+function defaultSocialBlock(): SocialBlock {
+  const links: Record<string, string> = {};
+  for (const n of SOCIAL_NETWORKS) links[n.key] = "";
+  return { id: newId(), kind: "social", align: "center", links };
 }
 
 /** Contenu de départ pour un nouveau template : logo MYPLV, une zone de texte, une zone image, un pied de page. */
@@ -107,12 +132,33 @@ function blockBodyHtml(b: Block): string {
         : `max-width:min(${AUTO_IMAGE_MAX}px,100%);height:auto;display:inline-block;`;
       const img = `<img src="${b.src}" alt=""${widthAttr} style="${style}" />`;
       const linked = b.href ? `<a href="${b.href}" target="_blank" rel="noopener noreferrer">${img}</a>` : img;
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}">${linked}</td></tr></table>`;
+      // "align" (attribut HTML) ET "text-align" (style inline) portent la
+      // même valeur : l'attribut suffit dans la plupart des clients email,
+      // mais un style inline gagne toujours face à une éventuelle feuille
+      // de style externe qui ciblerait <td> — c'est justement ce qui
+      // cassait le centrage dans notre propre aperçu en direct (nos
+      // tableaux de données ont une règle globale `td { text-align:left }`
+      // qui s'appliquait aussi, par erreur, à ce HTML injecté).
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}" style="text-align:${alignStyle(b.align)};">${linked}</td></tr></table>`;
     }
     case "button":
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}"><a href="${b.href}" style="background:${b.bg};color:${b.color};padding:12px 28px;border-radius:2px;display:inline-block;text-decoration:none;font-weight:600;font-family:Arial,Helvetica,sans-serif;">${b.label}</a></td></tr></table>`;
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}" style="text-align:${alignStyle(b.align)};"><a href="${b.href}" style="background:${b.bg};color:${b.color};padding:12px 28px;border-radius:2px;display:inline-block;text-decoration:none;font-weight:600;font-family:Arial,Helvetica,sans-serif;">${b.label}</a></td></tr></table>`;
     case "divider":
       return `<hr style="border:none;border-top:1px solid #D8DCD3;margin:0;" />`;
+    case "spacer":
+      // line-height + &nbsp; plutôt qu'un <div> vide : certains clients
+      // email (Outlook) réduisent la hauteur d'un bloc sans contenu.
+      return `<div style="height:${b.height}px;line-height:${b.height}px;font-size:1px;">&nbsp;</div>`;
+    case "social": {
+      const icons = SOCIAL_NETWORKS.filter((n) => b.links[n.key]?.trim())
+        .map(
+          (n) =>
+            `<a href="${b.links[n.key]}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin:0 5px;"><img src="${socialIconDataUri(n.label, n.bg)}" width="32" height="32" alt="${n.name}" style="display:block;border-radius:50%;" /></a>`,
+        )
+        .join("");
+      if (!icons) return "";
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}" style="text-align:${alignStyle(b.align)};">${icons}</td></tr></table>`;
+    }
   }
 }
 
@@ -126,6 +172,10 @@ function blockConfig(b: Block): Record<string, unknown> {
       return { label: b.label, href: b.href, align: b.align, bg: b.bg, color: b.color };
     case "divider":
       return {};
+    case "spacer":
+      return { height: b.height };
+    case "social":
+      return { align: b.align, links: b.links };
   }
 }
 
@@ -187,6 +237,13 @@ export function htmlToBlocks(html: string): Block[] {
       });
     } else if (kind === "divider") {
       blocks.push({ id: newId(), kind: "divider" });
+    } else if (kind === "spacer") {
+      blocks.push({ id: newId(), kind: "spacer", height: (cfg.height as number) || 24 });
+    } else if (kind === "social") {
+      const links: Record<string, string> = {};
+      const cfgLinks = (cfg.links as Record<string, string>) || {};
+      for (const n of SOCIAL_NETWORKS) links[n.key] = cfgLinks[n.key] || "";
+      blocks.push({ id: newId(), kind: "social", align: (cfg.align as Align) || "center", links });
     }
   }
   return blocks.length > 0 ? blocks : [defaultTextBlock(trimmed)];
@@ -428,8 +485,20 @@ function labelFor(b: Block): string {
   if (b.kind === "text") return b.role === "footer" ? "Pied de page" : "Texte";
   if (b.kind === "image") return "Image";
   if (b.kind === "button") return "Bouton";
+  if (b.kind === "spacer") return "Espaceur";
+  if (b.kind === "social") return "Réseaux sociaux";
   return "Séparateur";
 }
+
+/** Palette de blocs affichée dans la boîte à outils latérale. */
+const BLOCK_PALETTE: { kind: Block["kind"]; icon: string; label: string }[] = [
+  { kind: "text", icon: "📝", label: "Texte" },
+  { kind: "image", icon: "🖼", label: "Image" },
+  { kind: "button", icon: "🔘", label: "Bouton" },
+  { kind: "social", icon: "🌐", label: "Réseaux sociaux" },
+  { kind: "divider", icon: "➖", label: "Séparateur" },
+  { kind: "spacer", icon: "↕", label: "Espaceur" },
+];
 
 type DropPos = "before" | "after";
 
@@ -540,8 +609,6 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
 
   // Blocs réutilisables et mises en page enregistrées (localStorage).
   const [snippets, setSnippets] = useState<Snippet[]>(() => readLocal(SNIPPETS_KEY, [] as Snippet[]));
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const libraryRef = useClickOutside(libraryOpen, () => setLibraryOpen(false));
   const [layouts, setLayouts] = useState<SavedLayout[]>(() => readLocal(LAYOUTS_KEY, [] as SavedLayout[]));
   const [showLayouts, setShowLayouts] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
@@ -589,14 +656,18 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   }
 
   function addBlock(kind: Block["kind"]) {
-    const block =
+    const block: Block =
       kind === "text"
         ? defaultTextBlock()
         : kind === "image"
           ? defaultImageBlock("https://placehold.co/560x260/eef1f6/7b8494?text=Image")
           : kind === "button"
             ? defaultButtonBlock()
-            : defaultDividerBlock();
+            : kind === "spacer"
+              ? defaultSpacerBlock()
+              : kind === "social"
+                ? defaultSocialBlock()
+                : defaultDividerBlock();
     commit([...blocks, block]);
   }
 
@@ -616,7 +687,6 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
 
   function insertSnippet(s: Snippet) {
     commit([...blocks, cloneWithNewId(s.block)]);
-    setLibraryOpen(false);
   }
 
   function handleSaveLayout() {
@@ -798,6 +868,39 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
       </div>
 
       <div className="rich-editor-columns">
+        {!rawMode && (
+          <div className="rich-editor-sidebar">
+            <div className="rich-editor-sidebar-head">Ajouter un bloc</div>
+            <div className="block-palette">
+              {BLOCK_PALETTE.map((p) => (
+                <button key={p.kind} type="button" className="block-palette-card" onClick={() => addBlock(p.kind)}>
+                  <span className="block-palette-icon">{p.icon}</span>
+                  <span>{p.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="rich-editor-sidebar-head">Mes blocs enregistrés</div>
+            <div className="block-library-list">
+              {snippets.length === 0 ? (
+                <div className="block-library-empty">
+                  Aucun bloc enregistré — utilise 💾 sur un bloc (ex. ton pied de page) pour pouvoir le réutiliser tel quel dans tes prochains templates.
+                </div>
+              ) : (
+                snippets.map((s) => (
+                  <div key={s.id} className="block-library-item">
+                    <button type="button" className="name-btn" onClick={() => insertSnippet(s)}>
+                      {s.name}
+                    </button>
+                    <button type="button" className="icon-btn danger" title="Supprimer ce bloc enregistré" onClick={() => deleteSnippet(s.id)}>
+                      ✕
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="rich-editor-left">
       {rawMode ? (
         <textarea value={rawText} onChange={(e) => setRawText(e.target.value)} rows={14} className="rich-editor-raw" />
@@ -958,6 +1061,75 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                 </BlockChrome>
               );
             }
+            if (b.kind === "spacer") {
+              return (
+                <BlockChrome key={b.id} {...common}>
+                  <div className="email-block-controls">
+                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      Hauteur
+                      <input
+                        type="number"
+                        min={4}
+                        max={200}
+                        value={b.height}
+                        onChange={(e) => updateBlock(b.id, { height: Number(e.target.value) || 0 } as Partial<SpacerBlock>)}
+                        style={{ width: 72 }}
+                      />
+                      px
+                    </label>
+                  </div>
+                  <div className="spacer-preview" style={{ height: Math.min(Math.max(b.height, 4), 80) }} />
+                </BlockChrome>
+              );
+            }
+            if (b.kind === "social") {
+              const active = SOCIAL_NETWORKS.filter((n) => b.links[n.key]?.trim());
+              return (
+                <BlockChrome key={b.id} {...common} extra={<AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align })} />}>
+                  <div className="email-block-controls" style={{ flexDirection: "column", alignItems: "stretch" }}>
+                    {SOCIAL_NETWORKS.map((n) => (
+                      <label key={n.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 92, flexShrink: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>{n.name}</span>
+                        <input
+                          type="text"
+                          placeholder={n.placeholder}
+                          value={b.links[n.key] || ""}
+                          onChange={(e) => updateBlock(b.id, { links: { ...b.links, [n.key]: e.target.value } } as Partial<SocialBlock>)}
+                          style={{ flex: 1 }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <div className="email-block-image-preview" style={{ justifyContent: alignStyle(b.align) as "left" | "center" | "right" }}>
+                    {active.length === 0 ? (
+                      <span className="empty-state">Ajoute au moins une URL ci-dessus pour voir l'icône apparaître</span>
+                    ) : (
+                      active.map((n) => (
+                        <span
+                          key={n.key}
+                          title={n.name}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            background: n.bg,
+                            color: "#fff",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            marginRight: 6,
+                          }}
+                        >
+                          {n.label}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </BlockChrome>
+              );
+            }
             return (
               <BlockChrome key={b.id} {...common}>
                 <div style={{ padding: "14px 12px" }}>
@@ -966,49 +1138,6 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
               </BlockChrome>
             );
           })}
-        </div>
-      )}
-
-      {!rawMode && (
-        <div className="email-add-block-bar">
-          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Ajouter un bloc :</span>
-          <button type="button" className="btn" onClick={() => addBlock("text")}>
-            + Texte
-          </button>
-          <button type="button" className="btn" onClick={() => addBlock("image")}>
-            + Image
-          </button>
-          <button type="button" className="btn" onClick={() => addBlock("button")}>
-            + Bouton
-          </button>
-          <button type="button" className="btn" onClick={() => addBlock("divider")}>
-            + Séparateur
-          </button>
-          <div className="block-library" ref={libraryRef}>
-            <button type="button" className="btn" onClick={() => setLibraryOpen((v) => !v)}>
-              📚 Mes blocs ({snippets.length})
-            </button>
-            {libraryOpen && (
-              <div className="block-library-panel">
-                {snippets.length === 0 ? (
-                  <div className="block-library-empty">
-                    Aucun bloc enregistré — utilise 💾 sur un bloc (ex. ton pied de page) pour pouvoir le réutiliser tel quel dans tes prochains templates.
-                  </div>
-                ) : (
-                  snippets.map((s) => (
-                    <div key={s.id} className="block-library-item">
-                      <button type="button" className="name-btn" onClick={() => insertSnippet(s)}>
-                        {s.name}
-                      </button>
-                      <button type="button" className="icon-btn danger" title="Supprimer ce bloc enregistré" onClick={() => deleteSnippet(s.id)}>
-                        ✕
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
         </div>
       )}
         </div>
