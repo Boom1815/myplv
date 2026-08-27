@@ -35,3 +35,18 @@ export function findUnknownVariables(source: string, knownKeys: string[]): strin
 }
 
 export const TEMPLATE_VARIABLE_KEYS = ["prenom", "nom", "entreprise", "secteur", "commune", "province", "offre", "lien"];
+
+/**
+ * Pied de page de désinscription — brief section 41 : un lien de
+ * désinscription fonctionnel sur CHAQUE email de campagne, jamais optionnel
+ * ni laissé à la rédaction du template. Ajouté au moment de l'envoi, pas
+ * éditable depuis l'écran Templates.
+ */
+export function appendUnsubscribeFooter(bodyHtml: string, unsubscribeUrl: string): string {
+  return `${bodyHtml}
+<hr style="border:none;border-top:1px solid #D8DCD3;margin:28px 0 14px;">
+<p style="font-family:system-ui,sans-serif;font-size:12px;color:#7b8494;line-height:1.5;">
+  Vous recevez cet email dans le cadre d'une démarche de prospection commerciale de MYPLV.
+  <a href="${unsubscribeUrl}" style="color:#2c4a9e;">Se désinscrire</a>
+</p>`;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type ProspectsResponse, type Tag } from "../lib/api";
+import { InfoTooltip } from "../components/InfoTooltip";
 
 const STATUS_LABELS: Record<string, string> = {
   nouveau: "Nouveau",
@@ -103,7 +104,10 @@ export function Prospects({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="main">
       <div className="page-head">
-        <h1>Prospects</h1>
+        <h1>
+          Prospects
+          <InfoTooltip>Chaque ligne est une entreprise qualifiée (voir Scoring). Les tags sont libres — utilise-les pour marquer un suivi personnel (ex. « appelé », « HOT »), ils n'affectent ni le score ni les campagnes.</InfoTooltip>
+        </h1>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {isAdmin && (
             <button className="btn" onClick={() => setShowTagManager((v) => !v)}>

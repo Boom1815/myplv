@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type BlacklistRule } from "../lib/api";
+import { InfoTooltip } from "../components/InfoTooltip";
 
 const SCOPE_LABELS: Record<string, string> = {
   nace_code: "Code NACE",
@@ -59,7 +60,10 @@ export function Blacklist({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="main">
       <div className="page-head">
-        <h1>Liste noire</h1>
+        <h1>
+          Liste noire
+          <InfoTooltip>Chaque règle exclut automatiquement les entreprises correspondantes — dès l'import, avant tout scoring ou envoi. Choisis le type qui décrit le mieux ce que tu veux bloquer (un mot dans le nom, une commune, une adresse précise…).</InfoTooltip>
+        </h1>
         {rules && <span className="count mono">{rules.length} règle{rules.length > 1 ? "s" : ""}</span>}
       </div>
       <p className="lede" style={{ marginBottom: 16 }}>

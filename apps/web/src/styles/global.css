@@ -590,3 +590,264 @@ tbody tr:hover {
   display: flex;
   gap: 8px;
 }
+
+/* --- Info tooltip ("i") --- */
+
+.info-wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.info-btn {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-faint);
+  font-family: "Fraunces", Georgia, serif;
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.info-btn:hover,
+.info-btn.open {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.info-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  width: max-content;
+  max-width: 280px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+}
+
+.info-popover.align-right {
+  left: auto;
+  right: 0;
+}
+
+.info-popover p {
+  margin: 0 0 6px;
+}
+
+.info-popover p:last-child {
+  margin-bottom: 0;
+}
+
+/* --- Campagnes --- */
+
+.campaign-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.campaign-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.campaign-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.campaign-card-head h3 {
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.campaign-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  color: var(--ink-soft);
+}
+
+.pill.mode-dry_run {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.pill.mode-production {
+  background: var(--risk-soft);
+  color: var(--risk);
+}
+
+.pill.status-draft {
+  background: var(--line-soft);
+  color: var(--ink-faint);
+}
+
+.pill.status-running {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.pill.status-completed,
+.pill.status-paused {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.step-row .step-num {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  min-width: 46px;
+}
+
+.step-row .step-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-row .step-info strong {
+  display: block;
+  font-size: 13.5px;
+}
+
+.step-row .step-info span {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.audience-box {
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 9px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--accent-ink);
+}
+
+.audience-box strong {
+  font-size: 20px;
+  font-family: "Fraunces", serif;
+}
+
+.send-preview {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.send-preview-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12.5px;
+}
+
+.send-preview-item:last-child {
+  border-bottom: none;
+}
+
+.send-preview-item .to {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--ink-faint);
+  margin-bottom: 2px;
+}
+
+.send-preview-item .subject {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 23, 28, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 24px 26px;
+}
+
+.modal-card h2 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}

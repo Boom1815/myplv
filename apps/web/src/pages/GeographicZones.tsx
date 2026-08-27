@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type GeoZone } from "../lib/api";
+import { InfoTooltip } from "../components/InfoTooltip";
 
 const DEFAULT_PROVINCES = ["Bruxelles-Capitale", "Brabant wallon", "Hainaut", "Namur"];
 
@@ -57,7 +58,10 @@ export function GeographicZones({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="main">
       <div className="page-head">
-        <h1>Zones géographiques</h1>
+        <h1>
+          Zones géographiques
+          <InfoTooltip>La zone de prospection couvre par défaut 4 provinces. Ici tu ajoutes des exceptions ponctuelles — une commune à inclure ou exclure précisément, même hors de ces provinces.</InfoTooltip>
+        </h1>
         {zones && <span className="count mono">{zones.length} exception{zones.length > 1 ? "s" : ""}</span>}
       </div>
       <p className="lede" style={{ marginBottom: 16 }}>

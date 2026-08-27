@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type Sector } from "../lib/api";
+import { InfoTooltip } from "../components/InfoTooltip";
 
 export function Sectors({ isAdmin }: { isAdmin: boolean }) {
   const [sectors, setSectors] = useState<Sector[] | null>(null);
@@ -65,7 +66,10 @@ export function Sectors({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="main">
       <div className="page-head">
-        <h1>Secteurs</h1>
+        <h1>
+          Secteurs
+          <InfoTooltip>Un secteur métier (Horeca, Construction…) regroupe des codes NACE — la classification officielle des activités. À l'import, chaque entreprise est rattachée automatiquement au secteur dont un de ses codes NACE fait partie.</InfoTooltip>
+        </h1>
         {sectors && <span className="count mono">{sectors.length} secteurs</span>}
       </div>
       <p className="lede" style={{ marginBottom: 16 }}>

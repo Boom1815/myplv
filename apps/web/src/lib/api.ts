@@ -83,6 +83,22 @@ export const api = {
   updateEmailTemplate: (id: string, patch: { name?: string; subject?: string; bodyHtml?: string }) =>
     request<{ template: EmailTemplate }>(`/email-templates/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteEmailTemplate: (id: string) => request<{ ok: true }>(`/email-templates/${id}`, { method: "DELETE" }),
+  campaigns: () => request<{ data: Campaign[] }>("/campaigns"),
+  campaign: (id: string) => request<{ campaign: Campaign; steps: CampaignStep[] }>(`/campaigns/${id}`),
+  addCampaign: (payload: { name: string; offerId?: string; segmentFilter?: SegmentFilter; dailySendLimit?: number }) =>
+    request<{ campaign: Campaign }>("/campaigns", { method: "POST", body: JSON.stringify(payload) }),
+  updateCampaign: (
+    id: string,
+    patch: Partial<{ name: string; offerId: string | null; segmentFilter: SegmentFilter; dailySendLimit: number; mode: string; status: string }>,
+  ) => request<{ campaign: Campaign }>(`/campaigns/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  deleteCampaign: (id: string) => request<{ ok: true }>(`/campaigns/${id}`, { method: "DELETE" }),
+  campaignAudience: (id: string) => request<{ total: number; sample: AudienceSample[] }>(`/campaigns/${id}/audience`),
+  addCampaignStep: (id: string, payload: { emailTemplateId: string; delayDays?: number; stopOnReply?: boolean }) =>
+    request<{ step: CampaignStep }>(`/campaigns/${id}/steps`, { method: "POST", body: JSON.stringify(payload) }),
+  deleteCampaignStep: (id: string, stepId: string) =>
+    request<{ ok: true }>(`/campaigns/${id}/steps/${stepId}`, { method: "DELETE" }),
+  sendCampaignStep: (id: string, stepId: string, confirm = false) =>
+    request<CampaignSendResult>(`/campaigns/${id}/steps/${stepId}/send`, { method: "POST", body: JSON.stringify({ confirm }) }),
 };
 
 export type Offer = {
@@ -179,3 +195,48 @@ export type ProspectsResponse = {
   data: Prospect[];
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
 };
+
+export type SegmentFilter = { province?: string; sectorId?: string; scoreTier?: string; tagId?: string };
+
+export type Campaign = {
+  id: string;
+  name: string;
+  mode: "dry_run" | "production";
+  status: "draft" | "scheduled" | "running" | "paused" | "completed";
+  segmentFilter: SegmentFilter;
+  dailySendLimit: number;
+  offerId: string | null;
+  offerName: string | null;
+  landingUrl?: string | null;
+  stepCount?: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CampaignStep = {
+  id: string;
+  stepOrder: number;
+  delayDays: number;
+  stopOnReply: string;
+  emailTemplateId: string | null;
+  templateName: string | null;
+  templateSubject: string | null;
+  sentCount: number;
+};
+
+export type AudienceSample = { companyName: string; email: string | null; province: string | null; scoreTier: string };
+
+export type CampaignSendPreview = {
+  dryRun: true;
+  reason: "dry_run" | "confirmation_required";
+  eligibleCount: number;
+  willSend: number;
+  dailySendLimit: number;
+  globalDailyLimit: number;
+  globalRemainingToday: number;
+  preview: Array<{ companyName: string; email: string | null; subject: string; bodyHtml: string }>;
+};
+
+export type CampaignSendResult =
+  | CampaignSendPreview
+  | { dryRun: false; attempted: number; sent: number; failed: number; remainingEligible: number };

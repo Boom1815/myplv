@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type EmailTemplate } from "../lib/api";
+import { InfoTooltip } from "../components/InfoTooltip";
 
 const EMPTY_FORM = {
   name: "",
@@ -72,7 +73,13 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="main">
       <div className="page-head">
-        <h1>Templates email</h1>
+        <h1>
+          Templates email
+          <InfoTooltip>
+            <p>Le contenu (sujet + corps) que tu rédiges ici, avec des variables comme {"{{prenom}}"} ou {"{{entreprise}}"} qui sont remplacées automatiquement par les vraies données de chaque prospect au moment de l'envoi.</p>
+            <p>Un template est ensuite relié à une étape de campagne (écran Campagnes). Le lien de désinscription est ajouté automatiquement — inutile de l'écrire toi-même.</p>
+          </InfoTooltip>
+        </h1>
         {isAdmin && (
           <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Annuler" : "Nouveau template"}

@@ -12,22 +12,32 @@ rapport d'audit). Ce qui existe et fonctionne, testé de bout en bout :
 - API (Hono, déployable sur Cloudflare Workers) : authentification par
   session (PBKDF2, cookies httpOnly, rate limiting), rôles ADMIN/READER,
   liste des prospects filtrable/paginée, écrans Scoring, Dashboard, Liste
-  noire, Secteurs/NACE, Zones géographiques.
+  noire, Secteurs/NACE, Zones géographiques, Campagnes.
 - Frontend (React/Vite, déployable sur Cloudflare Pages) : connexion,
   Dashboard, Prospects (avec tags), Scoring, Liste noire, Secteurs,
-  Géographie, Offres, Templates email — édition réservée ADMIN, lecture
-  seule READER partout où c'est pertinent.
+  Géographie, Offres, Templates email, Campagnes — édition réservée ADMIN,
+  lecture seule READER partout où c'est pertinent. Bouton d'aide « i »
+  contextuel sur chaque écran (mode d'emploi en clair, sans jargon).
 - Import KBO/BCE Open Data : filtrage géographique, dédoublonnage par
   numéro BCE, résolution automatique du secteur (NACE → secteur), exclusion
   automatique par liste noire, journalisation.
 - Moteur de scoring configurable (`@myplv/scoring`, 29 tests unitaires) :
   8 règles de départ reprenant l'exemple du brief, recalcul via CLI
   (`npm run score:run`) ou depuis l'écran Scoring (bouton « Recalculer »).
-- Fondations emailing (`@myplv/email`, 17 tests unitaires) : abstraction
+- Emailing (`@myplv/email`, 17 tests unitaires) : abstraction
   `EmailProvider` (Brevo / simulation), rendu de templates, désinscription
-  publique (`/api/unsubscribe`) fonctionnelle de bout en bout. La création
-  de campagnes et le déclenchement d'envoi ne sont pas encore construits —
-  volontairement, voir « Prochaines étapes ».
+  publique (`/api/unsubscribe`) fonctionnelle de bout en bout, pied de page
+  de désinscription ajouté automatiquement à chaque envoi (non éditable).
+  Campagnes : segment de prospects (province/secteur/score), séquence
+  d'étapes reliées à des templates, mode `dry_run` (simulation, aucun envoi
+  réel — défaut de toute nouvelle campagne) / `production`, aperçu avant
+  chaque envoi avec confirmation explicite, plafond d'envoi par clic et
+  plafond global quotidien (`EMAIL_DAILY_LIMIT`), déduplication (jamais
+  deux fois la même étape au même prospect), vérification de la liste de
+  suppression à l'envoi. L'envoi programmé/automatique (respect des délais
+  entre étapes sans action manuelle) n'est pas encore construit — chaque
+  étape s'envoie pour l'instant via le bouton « Envoyer » de l'écran
+  Campagnes.
 - Seeds : secteurs métier + règles NACE de départ, règles de scoring de
   départ, utilisateur admin initial.
 
@@ -112,7 +122,11 @@ détail (fichiers attendus, hypothèses à valider sur un export réel).
 
 ## Prochaines étapes
 
-Création de campagnes (segment, séquence, mode dry_run/production) et
-déclenchement d'envoi réel via Brevo — la pièce la plus sensible (RGPD,
-réputation, limite quotidienne), pas encore construite. Nécessite une clé
-API Brevo valide pour le premier test réel (voir `docs/DEPLOY.md`).
+- Envoi programmé automatique des étapes de séquence (aujourd'hui : chaque
+  étape se déclenche manuellement via le bouton « Envoyer »). Nécessite un
+  cron GitHub Actions supplémentaire, protégé par `CRON_SECRET`.
+- Premier envoi réel via Brevo — nécessite une clé API Brevo valide (voir
+  `docs/DEPLOY.md`) posée comme secret `BREVO_API_KEY`, `EMAIL_PROVIDER=brevo`.
+  Tant que ce n'est pas fait, `createEmailProvider` retombe toujours sur le
+  simulateur (`DryRunProvider`), jamais d'envoi silencieux.
+- Suivi des ouvertures/clics/bounces (webhooks Brevo → `email_events`).

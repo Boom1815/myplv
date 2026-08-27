@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type DashboardStats } from "../lib/api";
+import { InfoTooltip } from "../components/InfoTooltip";
 
 const TIER_ORDER = ["tres_haute", "haute", "moyenne", "faible", "ignorer"] as const;
 const TIER_LABELS: Record<string, string> = {
@@ -78,7 +79,13 @@ export function Dashboard() {
   return (
     <div className="main">
       <div className="page-head">
-        <h1>Dashboard</h1>
+        <h1>
+          Dashboard
+          <InfoTooltip>
+            <p>Vue d'ensemble de la prospection : combien d'entreprises sont collectées, combien sont qualifiées comme prospects, et combien peuvent recevoir un email.</p>
+            <p>Rien à faire ici — c'est une vue de lecture, mise à jour automatiquement.</p>
+          </InfoTooltip>
+        </h1>
       </div>
 
       <div className="stat-grid">
@@ -97,7 +104,13 @@ export function Dashboard() {
 
       <div className="dash-grid">
         <div className="card-block">
-          <h3>Répartition par priorité</h3>
+          <h3>
+            Répartition par priorité
+            <InfoTooltip>
+              Le niveau de priorité (score) vient de l'écran Scoring — plus il est élevé, plus l'entreprise correspond
+              au profil client type. Réglable dans Scoring → Recalculer.
+            </InfoTooltip>
+          </h3>
           {total === 0 ? (
             <p className="lede" style={{ fontSize: 13.5 }}>
               Aucun prospect pour l'instant.

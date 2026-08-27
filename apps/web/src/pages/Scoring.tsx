@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type ScoringRule } from "../lib/api";
+import { InfoTooltip } from "../components/InfoTooltip";
 
 export function Scoring({ isAdmin }: { isAdmin: boolean }) {
   const [rules, setRules] = useState<ScoringRule[] | null>(null);
@@ -63,7 +64,13 @@ export function Scoring({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="main">
       <div className="page-head">
-        <h1>Scoring</h1>
+        <h1>
+          Scoring
+          <InfoTooltip>
+            <p>Chaque règle ajoute (ou retire) des points à un prospect quand sa condition est vraie — le total détermine sa priorité (voir Dashboard).</p>
+            <p>Modifier les points ou activer/désactiver une règle ne change rien immédiatement : clique « Recalculer les scores » pour appliquer les nouveaux réglages à tous les prospects existants.</p>
+          </InfoTooltip>
+        </h1>
         {isAdmin && (
           <button className="btn btn-primary" onClick={handleRecompute} disabled={recomputing}>
             {recomputing ? "Recalcul en cours..." : "Recalculer les scores"}

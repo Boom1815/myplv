@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type Offer } from "../lib/api";
+import { InfoTooltip } from "../components/InfoTooltip";
 
 const EMPTY_FORM = { name: "", description: "", pitch: "", advantage: "", ctaLabel: "", landingUrl: "" };
 
@@ -45,7 +46,10 @@ export function Offers({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="main">
       <div className="page-head">
-        <h1>Offres</h1>
+        <h1>
+          Offres
+          <InfoTooltip>Une offre commerciale, reliée à une campagne (écran Campagnes) — son nom et son lien remplissent automatiquement les variables {"{{offre}}"} et {"{{lien}}"} dans les templates email.</InfoTooltip>
+        </h1>
         {isAdmin && (
           <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Annuler" : "Nouvelle offre"}
