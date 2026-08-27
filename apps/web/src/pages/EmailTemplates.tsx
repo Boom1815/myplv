@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type EmailTemplate } from "../lib/api";
 import { InfoTooltip } from "../components/InfoTooltip";
+import { RichEmailEditor } from "../components/RichEmailEditor";
 
 const EMPTY_FORM = {
   name: "",
@@ -14,6 +15,7 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ subject: string; bodyHtml: string } | null>(null);
   const [unknownVars, setUnknownVars] = useState<string[]>([]);
@@ -49,14 +51,38 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
     if (!form.name.trim() || !form.subject.trim() || !form.bodyHtml.trim()) return;
     setError(null);
     try {
-      const res = await api.addEmailTemplate(form);
+      if (editingId) {
+        await api.updateEmailTemplate(editingId, form);
+        setSelectedId(editingId);
+      } else {
+        const res = await api.addEmailTemplate(form);
+        setSelectedId(res.template.id);
+      }
       setForm(EMPTY_FORM);
+      setEditingId(null);
       setShowForm(false);
       load();
-      setSelectedId(res.template.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de la création.");
+      setError(err instanceof Error ? err.message : editingId ? "Échec de la modification." : "Échec de la création.");
     }
+  }
+
+  function handleStartEdit(t: EmailTemplate) {
+    setForm({ name: t.name, subject: t.subject, bodyHtml: t.bodyHtml });
+    setEditingId(t.id);
+    setShowForm(true);
+  }
+
+  function handleCancelForm() {
+    setForm(EMPTY_FORM);
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function handleStartCreate() {
+    setForm(EMPTY_FORM);
+    setEditingId(null);
+    setShowForm(true);
   }
 
   async function handleDelete(id: string) {
@@ -81,7 +107,7 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
           </InfoTooltip>
         </h1>
         {isAdmin && (
-          <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
+          <button className="btn btn-primary" onClick={showForm ? handleCancelForm : handleStartCreate}>
             {showForm ? "Annuler" : "Nouveau template"}
           </button>
         )}
@@ -97,6 +123,7 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
 
       {showForm && isAdmin && (
         <form onSubmit={handleSubmit} className="card-block" style={{ marginBottom: 20 }}>
+          <h3 style={{ marginBottom: 14 }}>{editingId ? "Modifier le template" : "Nouveau template"}</h3>
           <div className="field">
             <label>Nom du template</label>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -106,17 +133,17 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
             <input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} required placeholder="ex : {{entreprise}}, félicitations pour votre lancement !" />
           </div>
           <div className="field">
-            <label>Corps (HTML)</label>
-            <textarea
-              value={form.bodyHtml}
-              onChange={(e) => setForm({ ...form, bodyHtml: e.target.value })}
-              rows={8}
-              required
-              style={{ width: "100%", fontFamily: "IBM Plex Mono, monospace", fontSize: 12.5, padding: 10, borderRadius: 7, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink)" }}
-            />
+            <label>
+              Corps
+              <InfoTooltip>
+                <p>Mets en forme comme dans un traitement de texte : sélectionne du texte puis choisis gras/italique/souligné, une police, un corps (taille) ou une couleur (pipette).</p>
+                <p>Utilise les boutons Image, Image + texte et Colonnes pour composer une mise en page — ils s'insèrent à l'endroit du curseur, comme dans Gmail ou Outlook.</p>
+              </InfoTooltip>
+            </label>
+            <RichEmailEditor value={form.bodyHtml} onChange={(html) => setForm({ ...form, bodyHtml: html })} />
           </div>
-          <button className="btn btn-primary" type="submit">
-            Créer le template
+          <button className="btn btn-primary" type="submit" style={{ marginTop: 6 }}>
+            {editingId ? "Enregistrer les modifications" : "Créer le template"}
           </button>
         </form>
       )}
@@ -169,6 +196,19 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
             </p>
           ) : preview ? (
             <>
+              {isAdmin && (
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      const t = templates?.find((tpl) => tpl.id === selectedId);
+                      if (t) handleStartEdit(t);
+                    }}
+                  >
+                    Modifier
+                  </button>
+                </div>
+              )}
               {unknownVars.length > 0 && (
                 <div className="form-error" style={{ marginBottom: 12 }}>
                   Variable(s) non reconnue(s) : {unknownVars.map((v) => `{{${v}}}`).join(", ")}

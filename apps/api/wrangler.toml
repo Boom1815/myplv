@@ -27,6 +27,10 @@ EMAIL_DAILY_LIMIT = "50"
 # réussi. À repasser sur "Lax" (ou retirer, "Lax" est le défaut dans
 # routes/auth.ts) une fois les deux servis depuis app.myplv.be.
 SESSION_COOKIE_SAMESITE = "None"
+# "brevo" active les envois réels (voir createEmailProvider) — la clé
+# BREVO_API_KEY (secret, jamais ici) doit être posée pour que ça marche
+# vraiment ; sans elle, l'envoi retombe automatiquement sur le simulateur.
+EMAIL_PROVIDER = "brevo"
 
 # À décommenter une fois le sous-domaine app.myplv.be pointé (voir section 4
 # du rapport d'audit) :
