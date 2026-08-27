@@ -18,20 +18,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as {
-      message?: string;
-      debug?: { name?: string; message?: string; stack?: string } | string;
-    };
-    // "debug" est un champ temporaire côté API (voir apps/api/src/index.ts)
-    // pour voir la vraie cause d'un 500 pendant la mise en route — à
-    // retirer des deux côtés une fois le login validé en production.
-    const base = body.message ?? `Erreur ${res.status}`;
-    const detail = body.debug
-      ? typeof body.debug === "string"
-        ? body.debug
-        : `${body.debug.name ?? ""}: ${body.debug.message ?? ""}`
-      : undefined;
-    throw new Error(detail ? `${base}\n\n${detail}` : base);
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { message?: string }).message ?? `Erreur ${res.status}`);
   }
   return res.json() as Promise<T>;
 }
