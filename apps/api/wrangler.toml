@@ -31,6 +31,13 @@ SESSION_COOKIE_SAMESITE = "None"
 # BREVO_API_KEY (secret, jamais ici) doit être posée pour que ça marche
 # vraiment ; sans elle, l'envoi retombe automatiquement sur le simulateur.
 EMAIL_PROVIDER = "brevo"
+# Doit correspondre à un expéditeur VÉRIFIÉ dans Brevo (Paramètres →
+# Expéditeurs, domaines et IP dédiées) — un envoi depuis une adresse non
+# vérifiée est accepté par l'API puis rejeté silencieusement par Brevo
+# (visible comme "Erreur" dans Temps réel), constaté le 27/08/2026 avec
+# le défaut précédent "no-reply@myplv.be", jamais ajouté comme expéditeur.
+EMAIL_FROM_ADDRESS = "info@myplv.be"
+EMAIL_FROM_NAME = "MYPLV"
 
 # À décommenter une fois le sous-domaine app.myplv.be pointé (voir section 4
 # du rapport d'audit) :
