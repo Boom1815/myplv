@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { renderTemplate, SAMPLE_VARIABLES } from "@myplv/email";
 
 /**
  * Éditeur de templates email — par blocs, réordonnables par glisser-déposer.
@@ -513,6 +514,13 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   const libraryRef = useClickOutside(libraryOpen, () => setLibraryOpen(false));
   const [layouts, setLayouts] = useState<SavedLayout[]>(() => readLocal(LAYOUTS_KEY, [] as SavedLayout[]));
   const [showLayouts, setShowLayouts] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+
+  // Aperçu en direct : le HTML courant (blocs ou source brute selon le
+  // mode), avec les variables {{prenom}}… remplacées par des exemples —
+  // mêmes données que l'aperçu serveur (écran Templates) et l'envoi de
+  // test, pour ne jamais surprendre entre les deux.
+  const previewHtml = renderTemplate(rawMode ? rawText : blocksToHtml(blocks), SAMPLE_VARIABLES);
 
   if (value !== lastEmittedRef.current && value !== rawText) {
     // Changement externe (sélection d'un autre template, ou un parent qui
@@ -738,7 +746,10 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
 
         <span className="rich-editor-sep" />
 
-        <button type="button" className="btn" style={{ marginLeft: "auto" }} onClick={() => setShowLayouts(true)}>
+        <button type="button" className={`btn ${showPreview ? "btn-primary" : ""}`} style={{ marginLeft: "auto" }} onClick={() => setShowPreview((v) => !v)}>
+          👁 Aperçu
+        </button>
+        <button type="button" className="btn" onClick={() => setShowLayouts(true)}>
           📐 Mes mises en page
         </button>
         <button type="button" className="btn" onClick={rawMode ? switchToVisual : switchToRaw}>
@@ -746,6 +757,8 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
         </button>
       </div>
 
+      <div className="rich-editor-columns">
+        <div className="rich-editor-left">
       {rawMode ? (
         <textarea value={rawText} onChange={(e) => setRawText(e.target.value)} rows={14} className="rich-editor-raw" />
       ) : (
@@ -923,6 +936,17 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
           </div>
         </div>
       )}
+        </div>
+
+        {showPreview && (
+          <div className="rich-editor-preview">
+            <div className="rich-editor-preview-head">Aperçu en direct</div>
+            <div className="rich-editor-preview-body">
+              <div className="rich-editor-preview-frame" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            </div>
+          </div>
+        )}
+      </div>
 
       {showLayouts && (
         <div className="modal-backdrop" onClick={() => setShowLayouts(false)}>

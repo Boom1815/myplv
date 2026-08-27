@@ -1155,6 +1155,78 @@ tbody tr:hover {
   font-size: 12.5px;
 }
 
+/* --- Éditeur email : mise en page à deux colonnes (édition / aperçu) --- */
+
+.rich-editor-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 1px;
+  background: var(--line);
+}
+
+.rich-editor-columns > .rich-editor-left {
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--surface);
+}
+
+.rich-editor-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  position: sticky;
+  top: 58px;
+  max-height: calc(100vh - 74px);
+  overflow-y: auto;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+}
+
+.rich-editor-preview-head {
+  position: sticky;
+  top: 0;
+  padding: 9px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.rich-editor-preview-body {
+  padding: 20px;
+}
+
+.rich-editor-preview-frame {
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 24px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  color: #1c2230;
+  line-height: 1.6;
+}
+
+.rich-editor-preview-frame img {
+  max-width: 100%;
+}
+
+@media (max-width: 860px) {
+  .rich-editor-columns {
+    flex-direction: column;
+  }
+
+  .rich-editor-preview {
+    position: static;
+    max-height: none;
+    width: 100%;
+  }
+}
+
 /* --- Éditeur email : sélecteur de couleur (hex + favoris) --- */
 
 .color-picker {
