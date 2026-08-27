@@ -37,6 +37,15 @@ const FONT_FAMILIES = [
 
 const FONT_SIZES = [12, 13, 14, 16, 18, 20, 24, 28, 32];
 
+// Largeur par défaut d'une image "Auto" (pas de largeur explicite) — sans
+// ce plafond, une image plus large que la colonne (très fréquent — une
+// photo, un visuel importé…) remplit tout l'espace disponible et
+// l'alignement gauche/centre/droite n'a alors plus aucun effet visible
+// (rien ne "flotte" dans une image qui occupe déjà 100% de la largeur).
+// Le champ "Largeur" reste disponible pour une valeur précise, et
+// "Original" pour revenir à la taille native du fichier.
+const AUTO_IMAGE_MAX = 400;
+
 type Align = "left" | "center" | "right";
 
 type TextBlock = { id: string; kind: "text"; html: string; align: Align; role?: "footer" };
@@ -74,6 +83,7 @@ export function starterBlocks(): Block[] {
     defaultImageBlock("https://app.myplv.be/logo-myplv.png", 250, "center"),
     defaultTextBlock("<p>Bonjour {{prenom}},</p><p>Votre contenu ici…</p><p>{{offre}}</p>", "left"),
     defaultImageBlock("https://placehold.co/560x260/eef1f6/7b8494?text=Image", null, "center"),
+    defaultImageBlock("https://app.myplv.be/logo-myplv.png", 120, "center"),
     defaultTextBlock('<p style="font-size:12px;color:#7b8494;">MYPLV — Wavre, Belgique</p>', "center", "footer"),
   ];
 }
@@ -92,9 +102,11 @@ function blockBodyHtml(b: Block): string {
       return `<div style="text-align:${alignStyle(b.align)};">${b.html}</div>`;
     case "image": {
       const widthAttr = b.width ? ` width="${b.width}"` : "";
-      const style = b.width ? `width:${b.width}px;height:auto;max-width:100%;display:inline-block;` : "max-width:100%;height:auto;display:inline-block;";
+      const style = b.width
+        ? `width:${b.width}px;height:auto;max-width:100%;display:inline-block;`
+        : `max-width:min(${AUTO_IMAGE_MAX}px,100%);height:auto;display:inline-block;`;
       const img = `<img src="${b.src}" alt=""${widthAttr} style="${style}" />`;
-      const linked = b.href ? `<a href="${b.href}">${img}</a>` : img;
+      const linked = b.href ? `<a href="${b.href}" target="_blank" rel="noopener noreferrer">${img}</a>` : img;
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}">${linked}</td></tr></table>`;
     }
     case "button":
@@ -425,6 +437,10 @@ function BlockChrome({
   label,
   dragging,
   dropIndicator,
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
   onDragHandleStart,
   onDragOver,
   onDragLeave,
@@ -438,6 +454,10 @@ function BlockChrome({
   label: string;
   dragging: boolean;
   dropIndicator: DropPos | null;
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   onDragHandleStart: (e: React.DragEvent, blockEl: HTMLDivElement | null) => void;
   onDragOver: (e: React.DragEvent, blockEl: HTMLDivElement | null) => void;
   onDragLeave: () => void;
@@ -461,6 +481,15 @@ function BlockChrome({
         <span className="block-drag-handle" title="Glisser pour réordonner" draggable onDragStart={(e) => onDragHandleStart(e, blockRef.current)} onDragEnd={onDragEnd}>
           ⠿
         </span>
+        {/* Le glisser-déposer natif peut être capricieux selon la souris/le
+            trackpad — ces flèches garantissent toujours un moyen de
+            réordonner, même quand le drag ne "prend" pas. */}
+        <button type="button" className="icon-btn" title="Monter" disabled={isFirst} onClick={onMoveUp}>
+          ↑
+        </button>
+        <button type="button" className="icon-btn" title="Descendre" disabled={isLast} onClick={onMoveDown}>
+          ↓
+        </button>
         <span className="email-block-label">{label}</span>
         {extra}
         <span className="email-block-spacer" />
@@ -485,6 +514,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   // notre propre emitChange, sous peine de perdre le focus/curseur en cours.
   const lastEmittedRef = useRef<string>(blocksToHtml(blocks));
   const textRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const imgRefs = useRef<Map<string, HTMLImageElement>>(new Map());
   const savedRangeRef = useRef<Range | null>(null);
   const [imagePanelFor, setImagePanelFor] = useState<string | null>(null);
   // Le contentEditable de chaque bloc texte est volontairement "non
@@ -545,7 +575,17 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   function deleteBlock(id: string) {
     initialHtmlRef.current.delete(id);
     textRefs.current.delete(id);
+    imgRefs.current.delete(id);
     commit(blocks.filter((b) => b.id !== id));
+  }
+
+  function moveBlock(id: string, dir: -1 | 1) {
+    const idx = blocks.findIndex((b) => b.id === id);
+    const swapWith = idx + dir;
+    if (idx < 0 || swapWith < 0 || swapWith >= blocks.length) return;
+    const next = [...blocks];
+    [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
+    commit(next);
   }
 
   function addBlock(kind: Block["kind"]) {
@@ -764,11 +804,15 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
       ) : (
         <div className="email-blocks">
           {blocks.length === 0 && <div className="empty-state">Aucun bloc — ajoute-en un ci-dessous.</div>}
-          {blocks.map((b) => {
+          {blocks.map((b, i) => {
             const common = {
               label: labelFor(b),
               dragging: dragId === b.id,
               dropIndicator: overId === b.id && dragId && dragId !== b.id ? overPos : null,
+              isFirst: i === 0,
+              isLast: i === blocks.length - 1,
+              onMoveUp: () => moveBlock(b.id, -1),
+              onMoveDown: () => moveBlock(b.id, 1),
               onDragHandleStart: (e: React.DragEvent, el: HTMLDivElement | null) => handleDragHandleStart(e, b.id, el),
               onDragOver: (e: React.DragEvent, el: HTMLDivElement | null) => handleDragOver(e, b.id, el),
               onDragLeave: () => {
@@ -815,7 +859,19 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                     />
                   ) : (
                     <div className="email-block-image-preview" style={{ justifyContent: alignStyle(b.align) as "left" | "center" | "right" }}>
-                      {b.src ? <img src={b.src} alt="" style={b.width ? { width: b.width } : undefined} /> : <span className="empty-state">Aucune image</span>}
+                      {b.src ? (
+                        <img
+                          ref={(el) => {
+                            if (el) imgRefs.current.set(b.id, el);
+                            else imgRefs.current.delete(b.id);
+                          }}
+                          src={b.src}
+                          alt=""
+                          style={b.width ? { width: b.width, height: "auto", maxWidth: "100%" } : { maxWidth: `min(${AUTO_IMAGE_MAX}px, 100%)`, height: "auto" }}
+                        />
+                      ) : (
+                        <span className="empty-state">Aucune image</span>
+                      )}
                     </div>
                   )}
                   <div className="email-block-controls">
@@ -834,6 +890,25 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                       />
                       px
                     </label>
+                    <button
+                      type="button"
+                      className={`btn ${b.width === null ? "btn-primary" : ""}`}
+                      title="S'adapte à l'écran, sans dépasser sa taille naturelle"
+                      onClick={() => updateBlock(b.id, { width: null } as Partial<ImageBlock>)}
+                    >
+                      Auto
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      title="Revenir à la taille native du fichier"
+                      onClick={() => {
+                        const natural = imgRefs.current.get(b.id)?.naturalWidth;
+                        updateBlock(b.id, { width: natural && natural > 0 ? natural : null } as Partial<ImageBlock>);
+                      }}
+                    >
+                      Original
+                    </button>
                     <label style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
                       Lien (optionnel)
                       <input

@@ -95,7 +95,7 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
   }
 
   return (
-    <div className="main">
+    <div className="main main-wide">
       <div className="page-head">
         <h1>
           Templates email

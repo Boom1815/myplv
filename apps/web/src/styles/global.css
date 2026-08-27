@@ -223,6 +223,12 @@ a {
   margin: 0 auto;
 }
 
+/* Variante pleine largeur — l'éditeur de templates (édition + aperçu côte
+   à côte) a besoin de bien plus que 1240px pour respirer. */
+.main-wide {
+  max-width: none;
+}
+
 /* --- Login --- */
 
 .login-screen {
