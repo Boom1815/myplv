@@ -538,54 +538,45 @@ campaignsRoutes.post("/:id/steps/:stepId/test", requireAdmin, async (c) => {
   const to = body.to?.trim();
   if (!to) return c.json({ error: "invalid_request", message: "Adresse email de test requise." }, 400);
 
-  try {
-    const [campaign] = await db.select().from(schema.campaigns).where(eq(schema.campaigns.id, campaignId));
-    if (!campaign) return c.json({ error: "not_found" }, 404);
+  const [campaign] = await db.select().from(schema.campaigns).where(eq(schema.campaigns.id, campaignId));
+  if (!campaign) return c.json({ error: "not_found" }, 404);
 
-    const [step] = await db
-      .select()
-      .from(schema.campaignSteps)
-      .where(and(eq(schema.campaignSteps.id, stepId), eq(schema.campaignSteps.campaignId, campaignId)));
-    if (!step || !step.emailTemplateId) return c.json({ error: "invalid_request", message: "Étape ou template introuvable." }, 400);
+  const [step] = await db
+    .select()
+    .from(schema.campaignSteps)
+    .where(and(eq(schema.campaignSteps.id, stepId), eq(schema.campaignSteps.campaignId, campaignId)));
+  if (!step || !step.emailTemplateId) return c.json({ error: "invalid_request", message: "Étape ou template introuvable." }, 400);
 
-    const [template] = await db.select().from(schema.emailTemplates).where(eq(schema.emailTemplates.id, step.emailTemplateId));
-    if (!template) return c.json({ error: "invalid_request", message: "Template introuvable." }, 400);
+  const [template] = await db.select().from(schema.emailTemplates).where(eq(schema.emailTemplates.id, step.emailTemplateId));
+  if (!template) return c.json({ error: "invalid_request", message: "Template introuvable." }, 400);
 
-    const offer = campaign.offerId ? (await db.select().from(schema.offers).where(eq(schema.offers.id, campaign.offerId)))[0] : undefined;
-    const vars: TemplateVariables = { ...SAMPLE_VARIABLES, offre: offer?.name ?? SAMPLE_VARIABLES.offre, lien: offer?.landingUrl ?? SAMPLE_VARIABLES.lien };
+  const offer = campaign.offerId ? (await db.select().from(schema.offers).where(eq(schema.offers.id, campaign.offerId)))[0] : undefined;
+  const vars: TemplateVariables = { ...SAMPLE_VARIABLES, offre: offer?.name ?? SAMPLE_VARIABLES.offre, lien: offer?.landingUrl ?? SAMPLE_VARIABLES.lien };
 
-    const apiOrigin = new URL(c.req.url).origin;
-    const token = await generateUnsubscribeToken(to, c.env.AUTH_SECRET);
-    const unsubscribeUrl = `${apiOrigin}/api/unsubscribe?email=${encodeURIComponent(to)}&token=${token}`;
-    const subject = `[TEST] ${renderTemplate(template.subject, vars)}`;
-    const htmlContent = appendUnsubscribeFooter(renderTemplate(template.bodyHtml, vars), unsubscribeUrl);
+  const apiOrigin = new URL(c.req.url).origin;
+  const token = await generateUnsubscribeToken(to, c.env.AUTH_SECRET);
+  const unsubscribeUrl = `${apiOrigin}/api/unsubscribe?email=${encodeURIComponent(to)}&token=${token}`;
+  const subject = `[TEST] ${renderTemplate(template.subject, vars)}`;
+  const htmlContent = appendUnsubscribeFooter(renderTemplate(template.bodyHtml, vars), unsubscribeUrl);
 
-    const provider = createEmailProvider(c.env);
-    const result = await provider.send({
-      to: { email: to },
-      fromEmail: c.env.EMAIL_FROM_ADDRESS || "no-reply@myplv.be",
-      fromName: c.env.EMAIL_FROM_NAME || "MYPLV",
-      subject,
-      htmlContent,
-      tags: ["test", "campaign:" + campaignId, "step:" + stepId],
-    });
+  const provider = createEmailProvider(c.env);
+  const result = await provider.send({
+    to: { email: to },
+    fromEmail: c.env.EMAIL_FROM_ADDRESS || "no-reply@myplv.be",
+    fromName: c.env.EMAIL_FROM_NAME || "MYPLV",
+    subject,
+    htmlContent,
+    tags: ["test", "campaign:" + campaignId, "step:" + stepId],
+  });
 
-    await db.insert(schema.auditLogs).values({
-      userId: c.get("userId")!,
-      action: "campaign.test_send",
-      entityType: "campaign_step",
-      entityId: stepId,
-      metadata: { to, ok: result.ok, provider: provider.name },
-    });
+  await db.insert(schema.auditLogs).values({
+    userId: c.get("userId")!,
+    action: "campaign.test_send",
+    entityType: "campaign_step",
+    entityId: stepId,
+    metadata: { to, ok: result.ok, provider: provider.name },
+  });
 
-    if (!result.ok) return c.json({ ok: false, error: result.error, provider: provider.name }, 502);
-    return c.json({ ok: true, provider: provider.name });
-  } catch (err) {
-    // Diagnostic temporaire : renvoie l'erreur exacte au lieu du message
-    // générique masquant tout — à retirer une fois l'envoi de test validé.
-    return c.json(
-      { ok: false, error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), provider: "unknown" },
-      200,
-    );
-  }
+  if (!result.ok) return c.json({ ok: false, error: result.error, provider: provider.name }, 502);
+  return c.json({ ok: true, provider: provider.name });
 });
