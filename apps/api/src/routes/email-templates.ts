@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { schema } from "@myplv/db";
 import { eq } from "drizzle-orm";
-import { renderTemplate, TEMPLATE_VARIABLE_KEYS, findUnknownVariables } from "@myplv/email";
+import { renderTemplate, TEMPLATE_VARIABLE_KEYS, findUnknownVariables, SAMPLE_VARIABLES } from "@myplv/email";
 import type { AppBindings } from "../env";
 import { createDbForEnv } from "../db";
 import { requireAuth, requireAdmin } from "../middleware/auth";
@@ -10,18 +10,6 @@ import { slugify } from "../lib/slugify";
 export const emailTemplatesRoutes = new Hono<AppBindings>();
 
 emailTemplatesRoutes.use("*", requireAuth);
-
-/** Données factices pour la prévisualisation (brief section 32 : "prévisualisation avec données réelles" — ici un exemple représentatif, jamais un vrai prospect sans son accord). */
-const SAMPLE_VARIABLES = {
-  prenom: "Julie",
-  nom: "Dupont",
-  entreprise: "Boulangerie Dupont",
-  secteur: "Horeca",
-  commune: "Wavre",
-  province: "Brabant wallon",
-  offre: "Pack lancement MYPLV",
-  lien: "https://myplv.be",
-};
 
 /** GET /api/email-templates — lecture ADMIN+READER. */
 emailTemplatesRoutes.get("/", async (c) => {

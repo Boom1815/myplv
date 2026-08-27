@@ -6,6 +6,7 @@ import {
   createEmailProvider,
   generateUnsubscribeToken,
   renderTemplate,
+  SAMPLE_VARIABLES,
   type TemplateVariables,
 } from "@myplv/email";
 import type { AppBindings } from "../env";
@@ -16,26 +17,31 @@ export const campaignsRoutes = new Hono<AppBindings>();
 
 campaignsRoutes.use("*", requireAuth);
 
-/** Filtres d'audience supportés — volontairement simples, combinés en ET. */
+/** Filtres d'audience supportés — cases à cocher combinées en ET entre catégories, OU à l'intérieur d'une même catégorie (ex. Hainaut OU Namur, ET secteur Horeca). Une catégorie vide = pas de restriction sur ce critère. */
 type SegmentFilter = {
-  province?: string;
-  sectorId?: string;
-  scoreTier?: string;
-  tagId?: string;
+  provinces?: string[];
+  sectorIds?: string[];
+  scoreTiers?: string[];
 };
+
+function asNonEmptyStringArray(v: unknown): string[] | undefined {
+  return Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === "string" && x) ? (v as string[]) : undefined;
+}
+
+function sanitizeSegmentFilter(raw: unknown): SegmentFilter {
+  if (!raw || typeof raw !== "object") return {};
+  const { provinces, sectorIds, scoreTiers } = raw as SegmentFilter;
+  return {
+    provinces: asNonEmptyStringArray(provinces),
+    sectorIds: asNonEmptyStringArray(sectorIds),
+    scoreTiers: asNonEmptyStringArray(scoreTiers),
+  };
+}
 
 function parseSegmentFilter(value: string | null): SegmentFilter {
   if (!value) return {};
   try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!parsed || typeof parsed !== "object") return {};
-    const { province, sectorId, scoreTier, tagId } = parsed as SegmentFilter;
-    return {
-      province: typeof province === "string" && province ? province : undefined,
-      sectorId: typeof sectorId === "string" && sectorId ? sectorId : undefined,
-      scoreTier: typeof scoreTier === "string" && scoreTier ? scoreTier : undefined,
-      tagId: typeof tagId === "string" && tagId ? tagId : undefined,
-    };
+    return sanitizeSegmentFilter(JSON.parse(value));
   } catch {
     return {};
   }
@@ -46,10 +52,12 @@ function segmentConditions(filter: SegmentFilter): SQL[] {
     eq(schema.prospects.isEligibleForEmail, "true"),
     isNotNull(schema.companies.email),
   ];
-  if (filter.province) conditions.push(eq(schema.companies.province, filter.province));
-  if (filter.sectorId) conditions.push(eq(schema.companies.sectorId, filter.sectorId));
-  if (filter.scoreTier) {
-    conditions.push(eq(schema.prospects.scoreTier, filter.scoreTier as (typeof schema.scoreTier.enumValues)[number]));
+  if (filter.provinces?.length) conditions.push(inArray(schema.companies.province, filter.provinces));
+  if (filter.sectorIds?.length) conditions.push(inArray(schema.companies.sectorId, filter.sectorIds));
+  if (filter.scoreTiers?.length) {
+    conditions.push(
+      inArray(schema.prospects.scoreTier, filter.scoreTiers as (typeof schema.scoreTier.enumValues)[number][]),
+    );
   }
   return conditions;
 }
@@ -102,7 +110,7 @@ campaignsRoutes.post("/", requireAdmin, async (c) => {
     .values({
       name,
       offerId: body.offerId || null,
-      segmentFilter: JSON.stringify(body.segmentFilter ?? {}),
+      segmentFilter: JSON.stringify(sanitizeSegmentFilter(body.segmentFilter)),
       dailySendLimit,
     })
     .returning();
@@ -188,7 +196,7 @@ campaignsRoutes.patch("/:id", requireAdmin, async (c) => {
   const patch: Record<string, unknown> = {};
   if (body.name?.trim()) patch.name = body.name.trim();
   if ("offerId" in body) patch.offerId = body.offerId || null;
-  if (body.segmentFilter) patch.segmentFilter = JSON.stringify(body.segmentFilter);
+  if (body.segmentFilter) patch.segmentFilter = JSON.stringify(sanitizeSegmentFilter(body.segmentFilter));
   if (Number.isFinite(body.dailySendLimit) && (body.dailySendLimit ?? 0) > 0) patch.dailySendLimit = Math.trunc(body.dailySendLimit!);
   if (body.mode === "dry_run" || body.mode === "production") patch.mode = body.mode;
   if (body.status && ["draft", "scheduled", "running", "paused", "completed"].includes(body.status)) patch.status = body.status;
@@ -513,4 +521,62 @@ campaignsRoutes.post("/:id/steps/:stepId/send", requireAdmin, async (c) => {
     failed,
     remainingEligible: eligible.length - toSend.length,
   });
+});
+
+/**
+ * POST /api/campaigns/:id/steps/:stepId/test — ADMIN. Envoie UN email de
+ * test à une adresse choisie (ex. la tienne), avec des données d'exemple —
+ * jamais un vrai prospect. Indépendant du mode dry_run/production et des
+ * plafonds d'envoi (un seul destinataire, pas d'impact sur l'audience réelle) ;
+ * n'écrit pas dans email_sends (ne compte pas comme un envoi de campagne).
+ */
+campaignsRoutes.post("/:id/steps/:stepId/test", requireAdmin, async (c) => {
+  const db = createDbForEnv(c.env);
+  const campaignId = c.req.param("id");
+  const stepId = c.req.param("stepId");
+  const body = await c.req.json<{ to?: string }>().catch(() => ({}) as { to?: string });
+  const to = body.to?.trim();
+  if (!to) return c.json({ error: "invalid_request", message: "Adresse email de test requise." }, 400);
+
+  const [campaign] = await db.select().from(schema.campaigns).where(eq(schema.campaigns.id, campaignId));
+  if (!campaign) return c.json({ error: "not_found" }, 404);
+
+  const [step] = await db
+    .select()
+    .from(schema.campaignSteps)
+    .where(and(eq(schema.campaignSteps.id, stepId), eq(schema.campaignSteps.campaignId, campaignId)));
+  if (!step || !step.emailTemplateId) return c.json({ error: "invalid_request", message: "Étape ou template introuvable." }, 400);
+
+  const [template] = await db.select().from(schema.emailTemplates).where(eq(schema.emailTemplates.id, step.emailTemplateId));
+  if (!template) return c.json({ error: "invalid_request", message: "Template introuvable." }, 400);
+
+  const offer = campaign.offerId ? (await db.select().from(schema.offers).where(eq(schema.offers.id, campaign.offerId)))[0] : undefined;
+  const vars: TemplateVariables = { ...SAMPLE_VARIABLES, offre: offer?.name ?? SAMPLE_VARIABLES.offre, lien: offer?.landingUrl ?? SAMPLE_VARIABLES.lien };
+
+  const apiOrigin = new URL(c.req.url).origin;
+  const token = await generateUnsubscribeToken(to, c.env.AUTH_SECRET);
+  const unsubscribeUrl = `${apiOrigin}/api/unsubscribe?email=${encodeURIComponent(to)}&token=${token}`;
+  const subject = `[TEST] ${renderTemplate(template.subject, vars)}`;
+  const htmlContent = appendUnsubscribeFooter(renderTemplate(template.bodyHtml, vars), unsubscribeUrl);
+
+  const provider = createEmailProvider(c.env);
+  const result = await provider.send({
+    to: { email: to },
+    fromEmail: c.env.EMAIL_FROM_ADDRESS || "no-reply@myplv.be",
+    fromName: c.env.EMAIL_FROM_NAME || "MYPLV",
+    subject,
+    htmlContent,
+    tags: ["test", "campaign:" + campaignId, "step:" + stepId],
+  });
+
+  await db.insert(schema.auditLogs).values({
+    userId: c.get("userId")!,
+    action: "campaign.test_send",
+    entityType: "campaign_step",
+    entityId: stepId,
+    metadata: { to, ok: result.ok, provider: provider.name },
+  });
+
+  if (!result.ok) return c.json({ ok: false, error: result.error, provider: provider.name }, 502);
+  return c.json({ ok: true, provider: provider.name });
 });

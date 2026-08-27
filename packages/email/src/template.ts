@@ -36,6 +36,18 @@ export function findUnknownVariables(source: string, knownKeys: string[]): strin
 
 export const TEMPLATE_VARIABLE_KEYS = ["prenom", "nom", "entreprise", "secteur", "commune", "province", "offre", "lien"];
 
+/** Données factices pour la prévisualisation (brief section 32) — un exemple représentatif, jamais un vrai prospect sans son accord. Partagé entre l'écran Templates et l'envoi de test depuis une campagne. */
+export const SAMPLE_VARIABLES: TemplateVariables = {
+  prenom: "Julie",
+  nom: "Dupont",
+  entreprise: "Boulangerie Dupont",
+  secteur: "Horeca",
+  commune: "Wavre",
+  province: "Brabant wallon",
+  offre: "Pack lancement MYPLV",
+  lien: "https://myplv.be",
+};
+
 /**
  * Pied de page de désinscription — brief section 41 : un lien de
  * désinscription fonctionnel sur CHAQUE email de campagne, jamais optionnel

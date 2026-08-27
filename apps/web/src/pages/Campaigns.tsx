@@ -26,7 +26,42 @@ const STATUS_LABELS: Record<string, string> = {
   completed: "Terminée",
 };
 
-const EMPTY_FORM = { name: "", offerId: "", province: "", sectorId: "", scoreTier: "", dailySendLimit: "50" };
+const PROVINCES = ["Bruxelles-Capitale", "Brabant wallon", "Hainaut", "Namur"];
+
+const EMPTY_FORM = {
+  name: "",
+  offerId: "",
+  provinces: [] as string[],
+  sectorIds: [] as string[],
+  scoreTiers: [] as string[],
+  dailySendLimit: "50",
+};
+
+function toggleInList(list: string[], value: string): string[] {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+}
+
+/** Groupe de cases à cocher compact — provinces/secteurs/scores du segment. */
+function CheckboxGroup({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: Array<{ value: string; label: string }>;
+  selected: string[];
+  onToggle: (value: string) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+      {options.map((o) => (
+        <label key={o.value} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+          <input type="checkbox" checked={selected.includes(o.value)} onChange={() => onToggle(o.value)} />
+          {o.label}
+        </label>
+      ))}
+    </div>
+  );
+}
 
 export function Campaigns({ isAdmin }: { isAdmin: boolean }) {
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
@@ -46,6 +81,18 @@ export function Campaigns({ isAdmin }: { isAdmin: boolean }) {
   const [sendModal, setSendModal] = useState<{ stepId: string; preview: CampaignSendPreview } | null>(null);
   const [sending, setSending] = useState(false);
   const [sendResultMsg, setSendResultMsg] = useState<string | null>(null);
+
+  const [previewModal, setPreviewModal] = useState<{
+    subject: string;
+    bodyHtml: string;
+    unknownVariables: string[];
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const [testStepId, setTestStepId] = useState<string | null>(null);
+  const [testEmail, setTestEmail] = useState("info@myplv.be");
+  const [testingStepId, setTestingStepId] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ stepId: string; message: string; ok: boolean } | null>(null);
 
   function loadCampaigns() {
     api.campaigns().then((res) => setCampaigns(res.data)).catch((err) => setError(err instanceof Error ? err.message : "Erreur de chargement."));
@@ -85,9 +132,9 @@ export function Campaigns({ isAdmin }: { isAdmin: boolean }) {
         offerId: form.offerId || undefined,
         dailySendLimit: Number(form.dailySendLimit) || 50,
         segmentFilter: {
-          province: form.province || undefined,
-          sectorId: form.sectorId || undefined,
-          scoreTier: form.scoreTier || undefined,
+          provinces: form.provinces.length ? form.provinces : undefined,
+          sectorIds: form.sectorIds.length ? form.sectorIds : undefined,
+          scoreTiers: form.scoreTiers.length ? form.scoreTiers : undefined,
         },
       });
       setForm(EMPTY_FORM);
@@ -178,6 +225,44 @@ export function Campaigns({ isAdmin }: { isAdmin: boolean }) {
     }
   }
 
+  async function openTemplatePreview(templateId: string | null) {
+    if (!templateId) return;
+    setError(null);
+    setPreviewLoading(true);
+    try {
+      const res = await api.emailTemplate(templateId);
+      setPreviewModal({ subject: res.preview.subject, bodyHtml: res.preview.bodyHtml, unknownVariables: res.unknownVariables });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'aperçu.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function handleSendTest(campaignId: string, stepId: string) {
+    if (!testEmail.trim()) return;
+    setTestingStepId(stepId);
+    setTestResult(null);
+    try {
+      const res = await api.sendCampaignTestEmail(campaignId, stepId, testEmail.trim());
+      if (res.provider === "dry_run") {
+        setTestResult({
+          stepId,
+          ok: false,
+          message: "Simulé seulement — aucune clé Brevo active (EMAIL_PROVIDER=brevo + BREVO_API_KEY requis), donc rien n'a été envoyé pour de vrai.",
+        });
+      } else if (res.ok) {
+        setTestResult({ stepId, ok: true, message: `Envoyé à ${testEmail.trim()} via ${res.provider}.` });
+      } else {
+        setTestResult({ stepId, ok: false, message: res.error ?? "Échec de l'envoi du test." });
+      }
+    } catch (err) {
+      setTestResult({ stepId, ok: false, message: err instanceof Error ? err.message : "Échec de l'envoi du test." });
+    } finally {
+      setTestingStepId(null);
+    }
+  }
+
   return (
     <div className="main">
       <div className="page-head">
@@ -230,35 +315,42 @@ export function Campaigns({ isAdmin }: { isAdmin: boolean }) {
             <label>
               Segment ciblé
               <InfoTooltip>
-                Filtres combinés (ET) : seuls les prospects éligibles à l'email (adresse valide, pas désinscrits, pas
-                en liste noire) et correspondant à TOUS les critères choisis seront ciblés. Laisse un filtre vide pour
-                ne pas le restreindre.
+                Coche ce que tu veux inclure dans chaque catégorie (aucune case cochée = toutes). Les catégories se
+                combinent en ET entre elles (ex. Hainaut OU Namur, ET secteur Horeca) — seuls les prospects éligibles
+                à l'email (adresse valide, pas désinscrits, pas en liste noire) sont de toute façon ciblés.
               </InfoTooltip>
             </label>
-            <div className="field-row">
-              <select value={form.province} onChange={(e) => setForm({ ...form, province: e.target.value })}>
-                <option value="">Toutes provinces</option>
-                <option value="Bruxelles-Capitale">Bruxelles-Capitale</option>
-                <option value="Brabant wallon">Brabant wallon</option>
-                <option value="Hainaut">Hainaut</option>
-                <option value="Namur">Namur</option>
-              </select>
-              <select value={form.sectorId} onChange={(e) => setForm({ ...form, sectorId: e.target.value })}>
-                <option value="">Tous secteurs</option>
-                {sectors.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-              <select value={form.scoreTier} onChange={(e) => setForm({ ...form, scoreTier: e.target.value })}>
-                <option value="">Tous scores</option>
-                {Object.entries(TIER_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-              </select>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Provinces
+                </div>
+                <CheckboxGroup
+                  options={PROVINCES.map((p) => ({ value: p, label: p }))}
+                  selected={form.provinces}
+                  onToggle={(v) => setForm({ ...form, provinces: toggleInList(form.provinces, v) })}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Secteurs
+                </div>
+                <CheckboxGroup
+                  options={sectors.map((s) => ({ value: s.id, label: s.label }))}
+                  selected={form.sectorIds}
+                  onToggle={(v) => setForm({ ...form, sectorIds: toggleInList(form.sectorIds, v) })}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  Scores
+                </div>
+                <CheckboxGroup
+                  options={Object.entries(TIER_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+                  selected={form.scoreTiers}
+                  onToggle={(v) => setForm({ ...form, scoreTiers: toggleInList(form.scoreTiers, v) })}
+                />
+              </div>
             </div>
           </div>
 
@@ -355,24 +447,71 @@ export function Campaigns({ isAdmin }: { isAdmin: boolean }) {
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
                     {detail?.steps.map((step) => (
-                      <div className="step-row" key={step.id}>
-                        <span className="step-num mono">
-                          {step.stepOrder === 0 ? "J0" : `J+${step.delayDays}`}
-                        </span>
-                        <div className="step-info">
-                          <strong>{step.templateName ?? "Template supprimé"}</strong>
-                          <span>{step.templateSubject}</span>
+                      <div key={step.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div className="step-row">
+                          <span className="step-num mono">
+                            {step.stepOrder === 0 ? "J0" : `J+${step.delayDays}`}
+                          </span>
+                          <div className="step-info">
+                            <strong>{step.templateName ?? "Template supprimé"}</strong>
+                            <span>{step.templateSubject}</span>
+                          </div>
+                          <span className="pill">{step.sentCount} envoyé{step.sentCount > 1 ? "s" : ""}</span>
+                          <button
+                            className="btn"
+                            onClick={() => openTemplatePreview(step.emailTemplateId)}
+                            disabled={!step.emailTemplateId || previewLoading}
+                            style={{ fontSize: 12 }}
+                          >
+                            Aperçu
+                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                className="btn"
+                                onClick={() => {
+                                  setTestStepId(testStepId === step.id ? null : step.id);
+                                  setTestResult(null);
+                                }}
+                                style={{ fontSize: 12 }}
+                              >
+                                Test
+                              </button>
+                              <button className="btn btn-primary" onClick={() => openSendPreview(camp.id, step.id)} style={{ fontSize: 12 }}>
+                                Envoyer
+                              </button>
+                              <button className="btn" onClick={() => handleDeleteStep(camp.id, step.id)} style={{ fontSize: 12 }}>
+                                ×
+                              </button>
+                            </>
+                          )}
                         </div>
-                        <span className="pill">{step.sentCount} envoyé{step.sentCount > 1 ? "s" : ""}</span>
-                        {isAdmin && (
-                          <>
-                            <button className="btn btn-primary" onClick={() => openSendPreview(camp.id, step.id)} style={{ fontSize: 12 }}>
-                              Envoyer
+
+                        {testStepId === step.id && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 58 }}>
+                            <input
+                              type="email"
+                              value={testEmail}
+                              onChange={(e) => setTestEmail(e.target.value)}
+                              placeholder="ton@email.be"
+                              style={{ flex: 1, maxWidth: 260, padding: "6px 9px", borderRadius: 6, border: "1px solid var(--line)", fontSize: 13 }}
+                            />
+                            <button
+                              className="btn"
+                              onClick={() => handleSendTest(camp.id, step.id)}
+                              disabled={testingStepId === step.id}
+                              style={{ fontSize: 12 }}
+                            >
+                              {testingStepId === step.id ? "Envoi…" : "Envoyer le test"}
                             </button>
-                            <button className="btn" onClick={() => handleDeleteStep(camp.id, step.id)} style={{ fontSize: 12 }}>
-                              ×
-                            </button>
-                          </>
+                          </div>
+                        )}
+                        {testResult?.stepId === step.id && (
+                          <div
+                            style={{ marginLeft: 58, fontSize: 12.5, color: testResult.ok ? "var(--good)" : "var(--risk)" }}
+                          >
+                            {testResult.message}
+                          </div>
                         )}
                       </div>
                     ))}
@@ -469,6 +608,35 @@ export function Campaigns({ isAdmin }: { isAdmin: boolean }) {
                   {sending ? "Envoi en cours…" : `Confirmer l'envoi à ${sendModal.preview.willSend} prospect(s)`}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewModal && (
+        <div className="modal-backdrop" onClick={() => setPreviewModal(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h2>Aperçu de l'email</h2>
+            <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 14 }}>
+              Rendu avec des données d'exemple (pas un vrai prospect) — c'est à ça que ressemblera l'email une fois
+              les variables remplacées.
+            </p>
+            {previewModal.unknownVariables.length > 0 && (
+              <div className="form-error" style={{ marginBottom: 12 }}>
+                Variable(s) non reconnue(s) : {previewModal.unknownVariables.map((v) => `{{${v}}}`).join(", ")}
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 4 }}>Objet</div>
+            <div style={{ fontWeight: 600, marginBottom: 16 }}>{previewModal.subject}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 4 }}>Corps</div>
+            <div
+              style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 16, background: "var(--paper)" }}
+              dangerouslySetInnerHTML={{ __html: previewModal.bodyHtml }}
+            />
+            <div className="modal-actions">
+              <button className="btn" onClick={() => setPreviewModal(null)}>
+                Fermer
+              </button>
             </div>
           </div>
         </div>

@@ -99,6 +99,8 @@ export const api = {
     request<{ ok: true }>(`/campaigns/${id}/steps/${stepId}`, { method: "DELETE" }),
   sendCampaignStep: (id: string, stepId: string, confirm = false) =>
     request<CampaignSendResult>(`/campaigns/${id}/steps/${stepId}/send`, { method: "POST", body: JSON.stringify({ confirm }) }),
+  sendCampaignTestEmail: (id: string, stepId: string, to: string) =>
+    request<CampaignTestSendResult>(`/campaigns/${id}/steps/${stepId}/test`, { method: "POST", body: JSON.stringify({ to }) }),
 };
 
 export type Offer = {
@@ -196,7 +198,7 @@ export type ProspectsResponse = {
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
 };
 
-export type SegmentFilter = { province?: string; sectorId?: string; scoreTier?: string; tagId?: string };
+export type SegmentFilter = { provinces?: string[]; sectorIds?: string[]; scoreTiers?: string[] };
 
 export type Campaign = {
   id: string;
@@ -240,3 +242,5 @@ export type CampaignSendPreview = {
 export type CampaignSendResult =
   | CampaignSendPreview
   | { dryRun: false; attempted: number; sent: number; failed: number; remainingEligible: number };
+
+export type CampaignTestSendResult = { ok: boolean; provider: string; error?: string };
