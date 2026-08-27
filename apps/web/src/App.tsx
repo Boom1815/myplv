@@ -47,7 +47,7 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <strong>MYPLV</strong>
+          <img src="/logo-myplv.png" alt="MYPLV" width={100} />
           <span>Prospection</span>
         </div>
         <nav className="nav-tabs">

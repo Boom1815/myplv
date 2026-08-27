@@ -101,13 +101,13 @@ a {
 
 .topbar .brand {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
 }
 
-.topbar .brand strong {
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 18px;
+.topbar .brand img {
+  display: block;
+  height: auto;
 }
 
 .topbar .brand span {
