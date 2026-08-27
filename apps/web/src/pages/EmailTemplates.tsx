@@ -1,20 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type EmailTemplate } from "../lib/api";
 import { InfoTooltip } from "../components/InfoTooltip";
-import { RichEmailEditor } from "../components/RichEmailEditor";
+import { RichEmailEditor, starterHtml } from "../components/RichEmailEditor";
 
-const EMPTY_FORM = {
-  name: "",
-  subject: "",
-  bodyHtml: "<p>Bonjour {{prenom}},</p>\n<p>Votre contenu ici…</p>\n<p>{{offre}}</p>",
-};
+function emptyForm() {
+  return { name: "", subject: "", bodyHtml: starterHtml() };
+}
 
 export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
   const [templates, setTemplates] = useState<EmailTemplate[] | null>(null);
   const [availableVars, setAvailableVars] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ subject: string; bodyHtml: string } | null>(null);
@@ -58,7 +56,7 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
         const res = await api.addEmailTemplate(form);
         setSelectedId(res.template.id);
       }
-      setForm(EMPTY_FORM);
+      setForm(emptyForm());
       setEditingId(null);
       setShowForm(false);
       load();
@@ -74,13 +72,13 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
   }
 
   function handleCancelForm() {
-    setForm(EMPTY_FORM);
+    setForm(emptyForm());
     setEditingId(null);
     setShowForm(false);
   }
 
   function handleStartCreate() {
-    setForm(EMPTY_FORM);
+    setForm(emptyForm());
     setEditingId(null);
     setShowForm(true);
   }
@@ -136,8 +134,8 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
             <label>
               Corps
               <InfoTooltip>
-                <p>Mets en forme comme dans un traitement de texte : sélectionne du texte puis choisis gras/italique/souligné, une police, un corps (taille) ou une couleur (pipette).</p>
-                <p>Utilise les boutons Image, Image + texte et Colonnes pour composer une mise en page — ils s'insèrent à l'endroit du curseur, comme dans Gmail ou Outlook.</p>
+                <p>L'email se compose par blocs (texte, image, bouton, séparateur) — chacun dans son propre encadré, avec des flèches ↑ / ↓ pour le déplacer et une corbeille pour le supprimer. Ajoute-en un nouveau depuis la barre en bas de l'éditeur.</p>
+                <p>Dans un bloc de texte, sélectionne des mots puis choisis gras/italique/souligné, une police, un corps (taille) ou une couleur (pipette) — comme dans un traitement de texte.</p>
               </InfoTooltip>
             </label>
             <RichEmailEditor value={form.bodyHtml} onChange={(html) => setForm({ ...form, bodyHtml: html })} />
