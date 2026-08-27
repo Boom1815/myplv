@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Éditeur de templates email — par blocs, réordonnables par glisser-déposer.
@@ -18,6 +18,12 @@ import { useRef, useState } from "react";
  * changer au format déjà en base (bodyHtml = une simple chaîne HTML).
  * Un HTML plus ancien (ou collé en mode "Voir le HTML") sans ces marqueurs
  * est simplement chargé comme un unique bloc de texte — rien n'est perdu.
+ *
+ * Favoris de couleurs, blocs réutilisables (ex. un pied de page toujours
+ * identique) et mises en page enregistrées sont stockés dans le
+ * localStorage du navigateur — pratique et sans backend à faire évoluer,
+ * mais propre à cet appareil/navigateur (pas partagé entre collègues ou
+ * entre ordinateurs). À migrer côté serveur si ça devient un problème.
  */
 
 const FONT_FAMILIES = [
@@ -44,6 +50,10 @@ function newId(): string {
   return `b${Date.now().toString(36)}${blockIdCounter}`;
 }
 
+function cloneWithNewId(b: Block): Block {
+  return { ...b, id: newId() };
+}
+
 function defaultTextBlock(html = "<p>Votre texte ici…</p>", align: Align = "left", role?: "footer"): TextBlock {
   return { id: newId(), kind: "text", html, align, role };
 }
@@ -57,9 +67,10 @@ function defaultDividerBlock(): DividerBlock {
   return { id: newId(), kind: "divider" };
 }
 
-/** Contenu de départ pour un nouveau template : une zone de texte, une zone image, un pied de page. */
+/** Contenu de départ pour un nouveau template : logo MYPLV, une zone de texte, une zone image, un pied de page. */
 export function starterBlocks(): Block[] {
   return [
+    defaultImageBlock("https://app.myplv.be/logo-myplv.png", 250, "center"),
     defaultTextBlock("<p>Bonjour {{prenom}},</p><p>Votre contenu ici…</p><p>{{offre}}</p>", "left"),
     defaultImageBlock("https://placehold.co/560x260/eef1f6/7b8494?text=Image", null, "center"),
     defaultTextBlock('<p style="font-size:12px;color:#7b8494;">MYPLV — Wavre, Belgique</p>', "center", "footer"),
@@ -188,6 +199,163 @@ function wrapSelectionWithStyle(range: Range, styleProp: string, value: string):
   }
 }
 
+// --- Persistance locale (navigateur) : favoris couleur, blocs réutilisables, mises en page ---
+
+function readLocal<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeLocal<T>(key: string, value: T) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Stockage plein ou indisponible (navigation privée…) — on ignore, l'édition en cours reste utilisable.
+  }
+}
+
+const COLOR_FAVORITES_KEY = "myplv:emailEditor:colorFavorites";
+const SNIPPETS_KEY = "myplv:emailEditor:blockSnippets";
+const LAYOUTS_KEY = "myplv:emailEditor:layouts";
+
+type Snippet = { id: string; name: string; block: Block };
+type SavedLayout = { id: string; name: string; blocks: Block[]; savedAt: string };
+
+function normalizeHex(input: string): string | null {
+  let s = input.trim();
+  if (!s) return null;
+  if (!s.startsWith("#")) s = "#" + s;
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+    s = "#" + s
+      .slice(1)
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  return /^#[0-9a-fA-F]{6}$/.test(s) ? s.toLowerCase() : null;
+}
+
+function useClickOutside(active: boolean, onOutside: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!active) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onOutside();
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+  return ref;
+}
+
+/** Pipette de couleur : saisie hexadécimale libre + favoris enregistrés (partagés entre tous les sélecteurs de couleur du template). */
+function ColorPicker({ value, onChange, title, onOpen }: { value: string; onChange: (hex: string) => void; title: string; onOpen?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [hexInput, setHexInput] = useState(value);
+  const [favorites, setFavorites] = useState<string[]>(() => readLocal(COLOR_FAVORITES_KEY, [] as string[]));
+  const rootRef = useClickOutside(open, () => setOpen(false));
+
+  useEffect(() => {
+    setHexInput(value);
+  }, [value, open]);
+
+  function commitHex(raw: string) {
+    const hex = normalizeHex(raw);
+    if (hex) onChange(hex);
+  }
+
+  function addFavorite() {
+    // hexInput reflète le dernier choix de l'utilisateur (saisie ou pipette
+    // native) — "value" reste souvent une couleur par défaut figée (ex. le
+    // sélecteur "couleur du texte" de la barre d'outils, qui ne suit pas la
+    // couleur du texte sélectionné), donc jamais la bonne source ici.
+    const hex = normalizeHex(hexInput) ?? normalizeHex(value);
+    if (!hex || favorites.includes(hex)) return;
+    const next = [...favorites, hex].slice(-18);
+    setFavorites(next);
+    writeLocal(COLOR_FAVORITES_KEY, next);
+  }
+
+  function removeFavorite(hex: string) {
+    const next = favorites.filter((f) => f !== hex);
+    setFavorites(next);
+    writeLocal(COLOR_FAVORITES_KEY, next);
+  }
+
+  const hexValid = normalizeHex(hexInput) !== null;
+
+  return (
+    <div className="color-picker" ref={rootRef}>
+      <button
+        type="button"
+        className="color-picker-swatch"
+        title={title}
+        style={{ background: normalizeHex(hexInput) || value }}
+        onMouseDown={onOpen}
+        onClick={() => setOpen((v) => !v)}
+      />
+      {open && (
+        <div className="color-picker-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="color-picker-row">
+            <input
+              type="color"
+              value={normalizeHex(hexInput) || normalizeHex(value) || "#000000"}
+              onChange={(e) => {
+                setHexInput(e.target.value);
+                onChange(e.target.value);
+              }}
+            />
+            <input
+              type="text"
+              className={`color-picker-hex ${hexInput && !hexValid ? "invalid" : ""}`}
+              placeholder="#1a2b3c"
+              value={hexInput}
+              onChange={(e) => setHexInput(e.target.value)}
+              onBlur={() => commitHex(hexInput)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  commitHex(hexInput);
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+            />
+            <button type="button" className="icon-btn" title="Ajouter aux favoris" onClick={addFavorite}>
+              ★
+            </button>
+          </div>
+          {favorites.length === 0 ? (
+            <span className="color-picker-favorites-empty">Aucun favori — ★ pour en ajouter un.</span>
+          ) : (
+            <div className="color-picker-favorites">
+              {favorites.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  className="color-swatch"
+                  title={`${hex} (clic droit pour retirer)`}
+                  style={{ background: hex }}
+                  onClick={() => {
+                    onChange(hex);
+                    setHexInput(hex);
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    removeFavorite(hex);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const ALIGN_OPTIONS: { value: Align; label: string; title: string }[] = [
   { value: "left", label: "⯇", title: "Aligner à gauche" },
   { value: "center", label: "☰", title: "Centrer" },
@@ -233,7 +401,7 @@ function ImagePicker({ onPick, onCancel, label }: { onPick: (src: string) => voi
       </button>
       <span style={{ color: "var(--ink-faint)", fontSize: 12 }}>ou</span>
       <label className="btn" style={{ cursor: "pointer" }}>
-        Importer un fichier
+        Télécharger un fichier
         <input type="file" accept="image/*" onChange={handleFilePick} style={{ display: "none" }} />
       </label>
       <button type="button" className="btn" onClick={onCancel}>
@@ -262,6 +430,7 @@ function BlockChrome({
   onDrop,
   onDragEnd,
   onDelete,
+  onSaveSnippet,
   extra,
   children,
 }: {
@@ -274,6 +443,7 @@ function BlockChrome({
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onDelete: () => void;
+  onSaveSnippet: () => void;
   extra?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -293,6 +463,9 @@ function BlockChrome({
         <span className="email-block-label">{label}</span>
         {extra}
         <span className="email-block-spacer" />
+        <button type="button" className="icon-btn" title="Enregistrer comme bloc réutilisable" onClick={onSaveSnippet}>
+          💾
+        </button>
         <button type="button" className="icon-btn danger" title="Supprimer ce bloc" onClick={onDelete}>
           ✕
         </button>
@@ -334,6 +507,13 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   const [overId, setOverId] = useState<string | null>(null);
   const [overPos, setOverPos] = useState<DropPos | null>(null);
 
+  // Blocs réutilisables et mises en page enregistrées (localStorage).
+  const [snippets, setSnippets] = useState<Snippet[]>(() => readLocal(SNIPPETS_KEY, [] as Snippet[]));
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const libraryRef = useClickOutside(libraryOpen, () => setLibraryOpen(false));
+  const [layouts, setLayouts] = useState<SavedLayout[]>(() => readLocal(LAYOUTS_KEY, [] as SavedLayout[]));
+  const [showLayouts, setShowLayouts] = useState(false);
+
   if (value !== lastEmittedRef.current && value !== rawText) {
     // Changement externe (sélection d'un autre template, ou un parent qui
     // réinitialise value) détecté au rendu plutôt qu'en effet, pour éviter
@@ -370,6 +550,44 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
             ? defaultButtonBlock()
             : defaultDividerBlock();
     commit([...blocks, block]);
+  }
+
+  function handleSaveSnippet(block: Block) {
+    const name = window.prompt("Nom de ce bloc réutilisable :", labelFor(block));
+    if (!name || !name.trim()) return;
+    const next = [...snippets, { id: newId(), name: name.trim(), block: { ...block } }];
+    setSnippets(next);
+    writeLocal(SNIPPETS_KEY, next);
+  }
+
+  function deleteSnippet(id: string) {
+    const next = snippets.filter((s) => s.id !== id);
+    setSnippets(next);
+    writeLocal(SNIPPETS_KEY, next);
+  }
+
+  function insertSnippet(s: Snippet) {
+    commit([...blocks, cloneWithNewId(s.block)]);
+    setLibraryOpen(false);
+  }
+
+  function handleSaveLayout() {
+    const name = window.prompt("Nom de cette mise en page :");
+    if (!name || !name.trim()) return;
+    const next = [...layouts, { id: newId(), name: name.trim(), blocks: blocks.map((b) => ({ ...b })), savedAt: new Date().toISOString() }];
+    setLayouts(next);
+    writeLocal(LAYOUTS_KEY, next);
+  }
+
+  function deleteLayout(id: string) {
+    const next = layouts.filter((l) => l.id !== id);
+    setLayouts(next);
+    writeLocal(LAYOUTS_KEY, next);
+  }
+
+  function applyLayout(l: SavedLayout) {
+    commit(l.blocks.map(cloneWithNewId));
+    setShowLayouts(false);
   }
 
   function handleDragHandleStart(e: React.DragEvent, blockId: string, blockEl: HTMLDivElement | null) {
@@ -516,14 +734,14 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
           ))}
         </select>
 
-        <label className="rich-editor-color" title="Couleur du texte (pipette)">
-          <span style={{ fontSize: 11 }}>A</span>
-          <input type="color" defaultValue="#1c2230" onMouseDown={saveSelection} onChange={(e) => applyStyle("color", e.target.value)} />
-        </label>
+        <ColorPicker value="#1c2230" title="Couleur du texte" onOpen={saveSelection} onChange={(hex) => applyStyle("color", hex)} />
 
         <span className="rich-editor-sep" />
 
-        <button type="button" className="btn" onClick={rawMode ? switchToVisual : switchToRaw} style={{ marginLeft: "auto" }}>
+        <button type="button" className="btn" style={{ marginLeft: "auto" }} onClick={() => setShowLayouts(true)}>
+          📐 Mes mises en page
+        </button>
+        <button type="button" className="btn" onClick={rawMode ? switchToVisual : switchToRaw}>
           {rawMode ? "Éditeur visuel" : "Voir le HTML"}
         </button>
       </div>
@@ -549,6 +767,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
               onDrop: handleDrop,
               onDragEnd: resetDrag,
               onDelete: () => deleteBlock(b.id),
+              onSaveSnippet: () => handleSaveSnippet(b),
             };
             if (b.kind === "text") {
               return (
@@ -588,7 +807,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                   )}
                   <div className="email-block-controls">
                     <button type="button" className="btn" onClick={() => setImagePanelFor(imagePanelFor === b.id ? null : b.id)}>
-                      Remplacer l'image
+                      Télécharger / remplacer l'image
                     </button>
                     <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       Largeur
@@ -634,13 +853,13 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                         style={{ flex: 1 }}
                       />
                     </label>
-                    <label className="rich-editor-color" title="Couleur de fond">
-                      Fond
-                      <input type="color" value={b.bg} onChange={(e) => updateBlock(b.id, { bg: e.target.value } as Partial<ButtonBlock>)} />
+                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      Couleur fond
+                      <ColorPicker value={b.bg} title="Couleur de fond" onChange={(hex) => updateBlock(b.id, { bg: hex } as Partial<ButtonBlock>)} />
                     </label>
-                    <label className="rich-editor-color" title="Couleur du texte">
-                      Texte
-                      <input type="color" value={b.color} onChange={(e) => updateBlock(b.id, { color: e.target.value } as Partial<ButtonBlock>)} />
+                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      Couleur texte
+                      <ColorPicker value={b.color} title="Couleur du texte" onChange={(hex) => updateBlock(b.id, { color: hex } as Partial<ButtonBlock>)} />
                     </label>
                   </div>
                   <div className="email-block-image-preview" style={{ justifyContent: alignStyle(b.align) as "left" | "center" | "right" }}>
@@ -677,6 +896,75 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
           <button type="button" className="btn" onClick={() => addBlock("divider")}>
             + Séparateur
           </button>
+          <div className="block-library" ref={libraryRef}>
+            <button type="button" className="btn" onClick={() => setLibraryOpen((v) => !v)}>
+              📚 Mes blocs ({snippets.length})
+            </button>
+            {libraryOpen && (
+              <div className="block-library-panel">
+                {snippets.length === 0 ? (
+                  <div className="block-library-empty">
+                    Aucun bloc enregistré — utilise 💾 sur un bloc (ex. ton pied de page) pour pouvoir le réutiliser tel quel dans tes prochains templates.
+                  </div>
+                ) : (
+                  snippets.map((s) => (
+                    <div key={s.id} className="block-library-item">
+                      <button type="button" className="name-btn" onClick={() => insertSnippet(s)}>
+                        {s.name}
+                      </button>
+                      <button type="button" className="icon-btn danger" title="Supprimer ce bloc enregistré" onClick={() => deleteSnippet(s.id)}>
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showLayouts && (
+        <div className="modal-backdrop" onClick={() => setShowLayouts(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 760 }}>
+            <h2>Mes mises en page</h2>
+            <p className="lede" style={{ fontSize: 13, margin: "0 0 16px" }}>
+              Enregistre la structure actuelle (logo, textes, images, boutons — dans l'ordre) pour repartir de là dans un futur template.
+            </p>
+            <button type="button" className="btn btn-primary" onClick={handleSaveLayout}>
+              Enregistrer la mise en page actuelle
+            </button>
+            {layouts.length === 0 ? (
+              <p className="empty-state">Aucune mise en page enregistrée pour l'instant.</p>
+            ) : (
+              <div className="layout-grid">
+                {layouts.map((l) => (
+                  <div key={l.id} className="layout-card">
+                    <div className="layout-thumb">
+                      <div className="layout-thumb-inner" dangerouslySetInnerHTML={{ __html: blocksToHtml(l.blocks) }} />
+                    </div>
+                    <div className="layout-card-body">
+                      <span className="layout-card-name">{l.name}</span>
+                      <span className="layout-card-date">{new Date(l.savedAt).toLocaleDateString("fr-BE")}</span>
+                      <div className="layout-card-actions">
+                        <button type="button" className="btn btn-primary" onClick={() => applyLayout(l)}>
+                          Utiliser
+                        </button>
+                        <button type="button" className="btn" onClick={() => deleteLayout(l.id)}>
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="modal-actions">
+              <button type="button" className="btn" onClick={() => setShowLayouts(false)}>
+                Fermer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
