@@ -943,6 +943,12 @@ tbody tr:hover {
 
 .rich-editor-surface img {
   max-width: 100%;
+  cursor: pointer;
+}
+
+.rich-editor-surface img.rich-img-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .rich-editor-surface table {

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 /**
  * Éditeur enrichi pour le corps des templates email — brief : styles de
- * texte, couleurs, police/corps, insertion d'images et de colonnes.
+ * texte, couleurs, police/corps, insertion d'images (redimensionnables,
+ * remplaçables) et de colonnes.
  *
  * Volontairement construit sans dépendance externe : chaque style est
  * appliqué en CSS inline directement sur la sélection (pas de classes),
@@ -21,32 +22,24 @@ const FONT_FAMILIES = [
 
 const FONT_SIZES = [12, 13, 14, 16, 18, 20, 24, 28, 32];
 
-function wrapSelectionWithStyle(styleProp: string, value: string) {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
-  const range = sel.getRangeAt(0);
+function wrapSelectionWithStyle(range: Range, styleProp: string, value: string): boolean {
   const span = document.createElement("span");
   span.style.setProperty(styleProp, value);
   try {
     const content = range.extractContents();
     span.appendChild(content);
     range.insertNode(span);
-    // Repositionne la sélection sur le contenu modifié.
-    const newRange = document.createRange();
-    newRange.selectNodeContents(span);
-    sel.removeAllRanges();
-    sel.addRange(newRange);
+    const sel = window.getSelection();
+    if (sel) {
+      const newRange = document.createRange();
+      newRange.selectNodeContents(span);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+    }
     return true;
   } catch {
     return false;
   }
-}
-
-function toggleWrapStyle(styleProp: string, value: string) {
-  // Bascule simple : applique le style. Pour retirer, l'utilisateur
-  // resélectionne et choisit "Normal"/couleur par défaut — reste simple et
-  // prévisible plutôt que de détecter finement l'état actuel.
-  return wrapSelectionWithStyle(styleProp, value);
 }
 
 function insertHtmlAtCursor(editor: HTMLDivElement, html: string) {
@@ -100,9 +93,23 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   // depuis l'initialisation du composant.
   const lastValueRef = useRef<string | null>(null);
 
-  // Ne réécrit le DOM que si "value" a changé depuis l'extérieur (ex.
-  // sélection d'un autre template) — jamais à chaque frappe, pour ne pas
-  // faire sauter le curseur.
+  // Les menus <select> (police/corps) et le sélecteur de couleur volent
+  // nécessairement le focus au contentEditable pour ouvrir leur widget
+  // natif — ce qui efface la sélection de texte en cours. On la sauvegarde
+  // juste avant (mousedown) pour pouvoir la restaurer avant d'appliquer le
+  // style (onChange).
+  const savedRangeRef = useRef<Range | null>(null);
+  function saveSelection() {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed && editorRef.current?.contains(sel.anchorNode)) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  }
+
+  const [selectedImg, setSelectedImg] = useState<HTMLImageElement | null>(null);
+  const [imgWidth, setImgWidth] = useState("");
+  const replaceTargetRef = useRef<HTMLImageElement | null>(null);
+
   useEffect(() => {
     if (rawMode) return;
     if (editorRef.current && value !== lastValueRef.current) {
@@ -112,20 +119,89 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   }, [value, rawMode]);
 
   function emitChange() {
-    if (editorRef.current) {
-      lastValueRef.current = editorRef.current.innerHTML;
-      onChange(editorRef.current.innerHTML);
-    }
+    if (!editorRef.current) return;
+    // L'indicateur visuel "image sélectionnée" (classe CSS, purement pour
+    // l'édition) ne doit jamais atterrir dans le HTML final envoyé par
+    // email — nettoyé avant de remonter au parent.
+    const cleaned = editorRef.current.innerHTML.replace(/\s*class="rich-img-selected"/g, "");
+    lastValueRef.current = cleaned;
+    onChange(cleaned);
   }
 
   function applyStyle(styleProp: string, val: string) {
     if (!editorRef.current) return;
     editorRef.current.focus();
-    toggleWrapStyle(styleProp, val);
+    let sel = window.getSelection();
+    const hasLiveSelection = !!sel && sel.rangeCount > 0 && !sel.isCollapsed && editorRef.current.contains(sel.anchorNode);
+    if (!hasLiveSelection && savedRangeRef.current) {
+      sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(savedRangeRef.current);
+    }
+    sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      wrapSelectionWithStyle(sel.getRangeAt(0), styleProp, val);
+    }
+    savedRangeRef.current = null;
     emitChange();
   }
 
+  function deselectImage() {
+    selectedImg?.classList.remove("rich-img-selected");
+    setSelectedImg(null);
+  }
+
+  function selectImage(img: HTMLImageElement) {
+    if (selectedImg && selectedImg !== img) selectedImg.classList.remove("rich-img-selected");
+    img.classList.add("rich-img-selected");
+    setSelectedImg(img);
+    const currentWidth = img.style.width ? parseInt(img.style.width, 10) : Math.round(img.getBoundingClientRect().width);
+    setImgWidth(String(currentWidth || ""));
+    setInsertMode(null);
+  }
+
+  function handleEditorClick(e: React.MouseEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "IMG") {
+      selectImage(target as HTMLImageElement);
+    } else if (selectedImg) {
+      deselectImage();
+    }
+  }
+
+  function handleResizeImage(raw: string) {
+    setImgWidth(raw);
+    if (!selectedImg) return;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) {
+      selectedImg.style.width = `${n}px`;
+      selectedImg.style.height = "auto";
+      selectedImg.style.maxWidth = "none";
+      emitChange();
+    }
+  }
+
+  function handleDeleteImage() {
+    selectedImg?.remove();
+    setSelectedImg(null);
+    emitChange();
+  }
+
+  function handleOpenReplace() {
+    replaceTargetRef.current = selectedImg;
+    setInsertMode("image");
+    setImageUrl("");
+  }
+
   function insertImageSrc(src: string) {
+    if (replaceTargetRef.current) {
+      replaceTargetRef.current.src = src;
+      replaceTargetRef.current = null;
+      emitChange();
+      setInsertMode(null);
+      setImageUrl("");
+      return;
+    }
     if (!editorRef.current) return;
     editorRef.current.focus();
     if (insertMode === "imageTextLeft" || insertMode === "imageTextRight") {
@@ -179,7 +255,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
         <select
           title="Police"
           defaultValue=""
-          onMouseDown={(e) => e.preventDefault()}
+          onMouseDown={saveSelection}
           onChange={(e) => {
             if (e.target.value) applyStyle("font-family", e.target.value);
             e.target.value = "";
@@ -198,7 +274,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
         <select
           title="Corps (taille de texte)"
           defaultValue=""
-          onMouseDown={(e) => e.preventDefault()}
+          onMouseDown={saveSelection}
           onChange={(e) => {
             if (e.target.value) applyStyle("font-size", `${e.target.value}px`);
             e.target.value = "";
@@ -216,12 +292,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
 
         <label className="rich-editor-color" title="Couleur du texte (pipette)">
           <span style={{ fontSize: 11 }}>A</span>
-          <input
-            type="color"
-            defaultValue="#1c2230"
-            onMouseDown={(e) => e.stopPropagation()}
-            onChange={(e) => applyStyle("color", e.target.value)}
-          />
+          <input type="color" defaultValue="#1c2230" onMouseDown={saveSelection} onChange={(e) => applyStyle("color", e.target.value)} />
         </label>
 
         <span className="rich-editor-sep" />
@@ -231,7 +302,10 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
           className="btn"
           title="Insérer une image"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setInsertMode((v) => (v === "image" ? null : "image"))}
+          onClick={() => {
+            replaceTargetRef.current = null;
+            setInsertMode((v) => (v === "image" ? null : "image"));
+          }}
         >
           🖼 Image
         </button>
@@ -240,7 +314,10 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
           className="btn"
           title="Image à gauche, texte à droite"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setInsertMode((v) => (v === "imageTextLeft" ? null : "imageTextLeft"))}
+          onClick={() => {
+            replaceTargetRef.current = null;
+            setInsertMode((v) => (v === "imageTextLeft" ? null : "imageTextLeft"));
+          }}
         >
           🖼|T Image + texte
         </button>
@@ -249,7 +326,10 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
           className="btn"
           title="Texte à gauche, image à droite"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => setInsertMode((v) => (v === "imageTextRight" ? null : "imageTextRight"))}
+          onClick={() => {
+            replaceTargetRef.current = null;
+            setInsertMode((v) => (v === "imageTextRight" ? null : "imageTextRight"));
+          }}
         >
           T|🖼
         </button>
@@ -269,31 +349,57 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
 
       {insertMode && (
         <div className="rich-editor-image-panel">
-          <input
-            type="text"
-            placeholder="https://…/image.png"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            style={{ flex: 1 }}
-          />
+          <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{replaceTargetRef.current ? "Remplacer par :" : "Insérer :"}</span>
+          <input type="text" placeholder="https://…/image.png" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} style={{ flex: 1 }} />
           <button type="button" className="btn btn-primary" onClick={() => handleInsertImage(imageUrl)}>
-            Insérer l'URL
+            {replaceTargetRef.current ? "Remplacer" : "Insérer l'URL"}
           </button>
           <span style={{ color: "var(--ink-faint)", fontSize: 12 }}>ou</span>
           <label className="btn" style={{ cursor: "pointer" }}>
             Importer un fichier
             <input type="file" accept="image/*" onChange={handleFilePick} style={{ display: "none" }} />
           </label>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              replaceTargetRef.current = null;
+              setInsertMode(null);
+            }}
+          >
+            Annuler
+          </button>
+        </div>
+      )}
+
+      {selectedImg && !insertMode && (
+        <div className="rich-editor-image-panel">
+          <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Image sélectionnée</span>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
+            Largeur
+            <input
+              type="number"
+              min={10}
+              value={imgWidth}
+              onChange={(e) => handleResizeImage(e.target.value)}
+              style={{ width: 72, padding: "5px 8px", borderRadius: 6, border: "1px solid var(--line)" }}
+            />
+            px
+          </label>
+          <button type="button" className="btn" onClick={handleOpenReplace}>
+            Remplacer l'image
+          </button>
+          <button type="button" className="btn" onClick={handleDeleteImage}>
+            Supprimer
+          </button>
+          <button type="button" className="btn" onClick={deselectImage}>
+            Fermer
+          </button>
         </div>
       )}
 
       {rawMode ? (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={10}
-          className="rich-editor-raw"
-        />
+        <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={10} className="rich-editor-raw" />
       ) : (
         <div
           ref={editorRef}
@@ -302,6 +408,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
           suppressContentEditableWarning
           onInput={emitChange}
           onBlur={emitChange}
+          onClick={handleEditorClick}
         />
       )}
     </div>
