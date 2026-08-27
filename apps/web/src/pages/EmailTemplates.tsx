@@ -134,7 +134,7 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
             <label>
               Corps
               <InfoTooltip>
-                <p>L'email se compose par blocs (texte, image, bouton, séparateur) — chacun dans son propre encadré, avec des flèches ↑ / ↓ pour le déplacer et une corbeille pour le supprimer. Ajoute-en un nouveau depuis la barre en bas de l'éditeur.</p>
+                <p>L'email se compose par blocs (texte, image, bouton, séparateur) — chacun dans son propre encadré. Saisis la poignée ⠿ pour le glisser-déposer à un autre endroit, ou la croix pour le supprimer. Ajoute-en un nouveau depuis la barre en bas de l'éditeur.</p>
                 <p>Dans un bloc de texte, sélectionne des mots puis choisis gras/italique/souligné, une police, un corps (taille) ou une couleur (pipette) — comme dans un traitement de texte.</p>
               </InfoTooltip>
             </label>

@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 /**
- * Éditeur de templates email — par blocs.
+ * Éditeur de templates email — par blocs, réordonnables par glisser-déposer.
  *
- * Contrainte du brief : pouvoir composer un email (logo, titre, image,
- * texte, bouton…) ET réordonner ces éléments — un unique canevas de texte
- * libre ne le permettait pas. Chaque élément est donc son propre bloc
- * (texte, image, bouton ou séparateur), affiché dans un encadré avec des
- * boutons ↑ / ↓ / supprimer.
+ * Chaque élément (texte, image, bouton, séparateur) est son propre bloc,
+ * affiché dans un encadré avec une poignée de glisser-déposer. Le drag est
+ * en HTML5 natif (aucune dépendance) : la poignée seule est "draggable"
+ * (pas le bloc entier), pour ne jamais interférer avec la sélection de
+ * texte ou les champs à l'intérieur — mais l'aperçu déplacé pendant le
+ * drag est celui du bloc entier (dataTransfer.setDragImage).
  *
  * Le HTML final envoyé par email reste un simple <div>/<table>/<p> par
  * bloc (styles en inline CSS — les balises <style> sont peu fiables dans
@@ -31,7 +32,7 @@ const FONT_SIZES = [12, 13, 14, 16, 18, 20, 24, 28, 32];
 
 type Align = "left" | "center" | "right";
 
-type TextBlock = { id: string; kind: "text"; html: string; align: Align };
+type TextBlock = { id: string; kind: "text"; html: string; align: Align; role?: "footer" };
 type ImageBlock = { id: string; kind: "image"; src: string; width: number | null; align: Align; href: string };
 type ButtonBlock = { id: string; kind: "button"; label: string; href: string; align: Align; bg: string; color: string };
 type DividerBlock = { id: string; kind: "divider" };
@@ -43,29 +44,25 @@ function newId(): string {
   return `b${Date.now().toString(36)}${blockIdCounter}`;
 }
 
-function defaultTextBlock(html = "<p>Votre texte ici…</p>", align: Align = "left"): TextBlock {
-  return { id: newId(), kind: "text", html, align };
+function defaultTextBlock(html = "<p>Votre texte ici…</p>", align: Align = "left", role?: "footer"): TextBlock {
+  return { id: newId(), kind: "text", html, align, role };
 }
 function defaultImageBlock(src: string, width: number | null = null, align: Align = "center"): ImageBlock {
   return { id: newId(), kind: "image", src, width, align, href: "" };
 }
 function defaultButtonBlock(): ButtonBlock {
-  return { id: newId(), kind: "button", label: "En savoir plus", href: "https://myplv.be", align: "center", bg: "#2c4a9e", color: "#ffffff" };
+  return { id: newId(), kind: "button", label: "En savoir plus", href: "https://myplv.be", align: "center", bg: "#14151a", color: "#ffffff" };
 }
 function defaultDividerBlock(): DividerBlock {
   return { id: newId(), kind: "divider" };
 }
 
-/** Contenu de départ pour un nouveau template — inspiré de la maquette MailPro fournie : logo, titre, image, texte, bouton, pied de page. */
+/** Contenu de départ pour un nouveau template : une zone de texte, une zone image, un pied de page. */
 export function starterBlocks(): Block[] {
   return [
-    defaultImageBlock("https://app.myplv.be/logo-myplv.png", 120, "center"),
-    defaultTextBlock('<p><span style="font-size:22px;font-weight:bold;">Titre de votre email</span></p>', "center"),
-    defaultImageBlock("https://placehold.co/560x260/eef1f6/7b8494?text=Image", null, "center"),
     defaultTextBlock("<p>Bonjour {{prenom}},</p><p>Votre contenu ici…</p><p>{{offre}}</p>", "left"),
-    defaultButtonBlock(),
-    defaultDividerBlock(),
-    defaultTextBlock('<p style="font-size:12px;color:#7b8494;">MYPLV — Wavre, Belgique</p>', "center"),
+    defaultImageBlock("https://placehold.co/560x260/eef1f6/7b8494?text=Image", null, "center"),
+    defaultTextBlock('<p style="font-size:12px;color:#7b8494;">MYPLV — Wavre, Belgique</p>', "center", "footer"),
   ];
 }
 
@@ -89,7 +86,7 @@ function blockBodyHtml(b: Block): string {
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}">${linked}</td></tr></table>`;
     }
     case "button":
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}"><a href="${b.href}" style="background:${b.bg};color:${b.color};padding:12px 28px;border-radius:6px;display:inline-block;text-decoration:none;font-weight:600;font-family:Arial,Helvetica,sans-serif;">${b.label}</a></td></tr></table>`;
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}"><a href="${b.href}" style="background:${b.bg};color:${b.color};padding:12px 28px;border-radius:2px;display:inline-block;text-decoration:none;font-weight:600;font-family:Arial,Helvetica,sans-serif;">${b.label}</a></td></tr></table>`;
     case "divider":
       return `<hr style="border:none;border-top:1px solid #D8DCD3;margin:0;" />`;
   }
@@ -98,7 +95,7 @@ function blockBodyHtml(b: Block): string {
 function blockConfig(b: Block): Record<string, unknown> {
   switch (b.kind) {
     case "text":
-      return { align: b.align };
+      return { align: b.align, role: b.role };
     case "image":
       return { src: b.src, width: b.width, align: b.align, href: b.href };
     case "button":
@@ -138,7 +135,13 @@ export function htmlToBlocks(html: string): Block[] {
     }
     const textHtml = m[3] ? decodeURIComponent(escape(atob(m[3]))) : "";
     if (kind === "text") {
-      blocks.push({ id: newId(), kind: "text", html: textHtml || "<p></p>", align: (cfg.align as Align) || "left" });
+      blocks.push({
+        id: newId(),
+        kind: "text",
+        html: textHtml || "<p></p>",
+        align: (cfg.align as Align) || "left",
+        role: cfg.role === "footer" ? "footer" : undefined,
+      });
     } else if (kind === "image") {
       blocks.push({
         id: newId(),
@@ -155,7 +158,7 @@ export function htmlToBlocks(html: string): Block[] {
         label: (cfg.label as string) || "En savoir plus",
         href: (cfg.href as string) || "",
         align: (cfg.align as Align) || "center",
-        bg: (cfg.bg as string) || "#2c4a9e",
+        bg: (cfg.bg as string) || "#14151a",
         color: (cfg.color as string) || "#ffffff",
       });
     } else if (kind === "divider") {
@@ -185,10 +188,10 @@ function wrapSelectionWithStyle(range: Range, styleProp: string, value: string):
   }
 }
 
-const ALIGN_OPTIONS: { value: Align; label: string }[] = [
-  { value: "left", label: "⯇" },
-  { value: "center", label: "☰" },
-  { value: "right", label: "⯈" },
+const ALIGN_OPTIONS: { value: Align; label: string; title: string }[] = [
+  { value: "left", label: "⯇", title: "Aligner à gauche" },
+  { value: "center", label: "☰", title: "Centrer" },
+  { value: "right", label: "⯈", title: "Aligner à droite" },
 ];
 
 function AlignPicker({ value, onChange }: { value: Align; onChange: (a: Align) => void }) {
@@ -198,8 +201,8 @@ function AlignPicker({ value, onChange }: { value: Align; onChange: (a: Align) =
         <button
           key={o.value}
           type="button"
-          className={`btn ${value === o.value ? "btn-primary" : ""}`}
-          title={o.value === "left" ? "Aligner à gauche" : o.value === "center" ? "Centrer" : "Aligner à droite"}
+          className={`icon-btn ${value === o.value ? "active" : ""}`}
+          title={o.title}
           onClick={() => onChange(o.value)}
         >
           {o.label}
@@ -209,15 +212,7 @@ function AlignPicker({ value, onChange }: { value: Align; onChange: (a: Align) =
   );
 }
 
-function ImagePicker({
-  onPick,
-  onCancel,
-  label,
-}: {
-  onPick: (src: string) => void;
-  onCancel: () => void;
-  label: string;
-}) {
+function ImagePicker({ onPick, onCancel, label }: { onPick: (src: string) => void; onCancel: () => void; label: string }) {
   const [url, setUrl] = useState("");
   function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -248,39 +243,58 @@ function ImagePicker({
   );
 }
 
+function labelFor(b: Block): string {
+  if (b.kind === "text") return b.role === "footer" ? "Pied de page" : "Texte";
+  if (b.kind === "image") return "Image";
+  if (b.kind === "button") return "Bouton";
+  return "Séparateur";
+}
+
+type DropPos = "before" | "after";
+
 function BlockChrome({
   label,
-  isFirst,
-  isLast,
-  onMoveUp,
-  onMoveDown,
+  dragging,
+  dropIndicator,
+  onDragHandleStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
   onDelete,
   extra,
   children,
 }: {
   label: string;
-  isFirst: boolean;
-  isLast: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  dragging: boolean;
+  dropIndicator: DropPos | null;
+  onDragHandleStart: (e: React.DragEvent, blockEl: HTMLDivElement | null) => void;
+  onDragOver: (e: React.DragEvent, blockEl: HTMLDivElement | null) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
   onDelete: () => void;
   extra?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const blockRef = useRef<HTMLDivElement>(null);
   return (
-    <div className="email-block">
+    <div
+      ref={blockRef}
+      className={`email-block ${dragging ? "is-dragging" : ""} ${dropIndicator ? `drop-${dropIndicator}` : ""}`}
+      onDragOver={(e) => onDragOver(e, blockRef.current)}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="email-block-head">
+        <span className="block-drag-handle" title="Glisser pour réordonner" draggable onDragStart={(e) => onDragHandleStart(e, blockRef.current)} onDragEnd={onDragEnd}>
+          ⠿
+        </span>
         <span className="email-block-label">{label}</span>
         {extra}
         <span className="email-block-spacer" />
-        <button type="button" className="btn" title="Monter" disabled={isFirst} onClick={onMoveUp}>
-          ↑
-        </button>
-        <button type="button" className="btn" title="Descendre" disabled={isLast} onClick={onMoveDown}>
-          ↓
-        </button>
-        <button type="button" className="btn" title="Supprimer ce bloc" onClick={onDelete}>
-          🗑
+        <button type="button" className="icon-btn danger" title="Supprimer ce bloc" onClick={onDelete}>
+          ✕
         </button>
       </div>
       <div className="email-block-body">{children}</div>
@@ -314,11 +328,20 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     return initialHtmlRef.current.get(id)!;
   }
 
-  useEffect(() => {
-    if (value === lastEmittedRef.current) return;
+  // Glisser-déposer : id du bloc en cours de déplacement + id du bloc
+  // survolé et position (avant/après) pour l'indicateur visuel.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [overPos, setOverPos] = useState<DropPos | null>(null);
+
+  if (value !== lastEmittedRef.current && value !== rawText) {
+    // Changement externe (sélection d'un autre template, ou un parent qui
+    // réinitialise value) détecté au rendu plutôt qu'en effet, pour éviter
+    // un rendu intermédiaire avec les anciens blocs.
+    lastEmittedRef.current = value;
     setBlocks(htmlToBlocks(value));
     setRawText(value);
-  }, [value]);
+  }
 
   function commit(next: Block[]) {
     setBlocks(next);
@@ -329,15 +352,6 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
 
   function updateBlock(id: string, patch: Partial<Block>) {
     commit(blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)));
-  }
-
-  function moveBlock(id: string, dir: -1 | 1) {
-    const idx = blocks.findIndex((b) => b.id === id);
-    const swapWith = idx + dir;
-    if (idx < 0 || swapWith < 0 || swapWith >= blocks.length) return;
-    const next = [...blocks];
-    [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
-    commit(next);
   }
 
   function deleteBlock(id: string) {
@@ -356,6 +370,52 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
             ? defaultButtonBlock()
             : defaultDividerBlock();
     commit([...blocks, block]);
+  }
+
+  function handleDragHandleStart(e: React.DragEvent, blockId: string, blockEl: HTMLDivElement | null) {
+    setDragId(blockId);
+    e.dataTransfer.effectAllowed = "move";
+    if (blockEl) {
+      const rect = blockEl.getBoundingClientRect();
+      e.dataTransfer.setDragImage(blockEl, Math.min(24, rect.width / 2), 14);
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent, blockId: string, blockEl: HTMLDivElement | null) {
+    if (!dragId || dragId === blockId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const rect = blockEl?.getBoundingClientRect();
+    const pos: DropPos = rect && e.clientY - rect.top > rect.height / 2 ? "after" : "before";
+    setOverId(blockId);
+    setOverPos(pos);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    if (!dragId || !overId || dragId === overId) {
+      resetDrag();
+      return;
+    }
+    const fromIdx = blocks.findIndex((b) => b.id === dragId);
+    const toIdx = blocks.findIndex((b) => b.id === overId);
+    if (fromIdx < 0 || toIdx < 0) {
+      resetDrag();
+      return;
+    }
+    const next = [...blocks];
+    const [moved] = next.splice(fromIdx, 1);
+    let insertAt = next.findIndex((b) => b.id === overId);
+    if (overPos === "after") insertAt += 1;
+    next.splice(insertAt, 0, moved);
+    commit(next);
+    resetDrag();
+  }
+
+  function resetDrag() {
+    setDragId(null);
+    setOverId(null);
+    setOverPos(null);
   }
 
   function saveSelection() {
@@ -473,17 +533,26 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
       ) : (
         <div className="email-blocks">
           {blocks.length === 0 && <div className="empty-state">Aucun bloc — ajoute-en un ci-dessous.</div>}
-          {blocks.map((b, i) => {
+          {blocks.map((b) => {
             const common = {
-              isFirst: i === 0,
-              isLast: i === blocks.length - 1,
-              onMoveUp: () => moveBlock(b.id, -1),
-              onMoveDown: () => moveBlock(b.id, 1),
+              label: labelFor(b),
+              dragging: dragId === b.id,
+              dropIndicator: overId === b.id && dragId && dragId !== b.id ? overPos : null,
+              onDragHandleStart: (e: React.DragEvent, el: HTMLDivElement | null) => handleDragHandleStart(e, b.id, el),
+              onDragOver: (e: React.DragEvent, el: HTMLDivElement | null) => handleDragOver(e, b.id, el),
+              onDragLeave: () => {
+                if (overId === b.id) {
+                  setOverId(null);
+                  setOverPos(null);
+                }
+              },
+              onDrop: handleDrop,
+              onDragEnd: resetDrag,
               onDelete: () => deleteBlock(b.id),
             };
             if (b.kind === "text") {
               return (
-                <BlockChrome key={b.id} label="Texte" {...common} extra={<AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align })} />}>
+                <BlockChrome key={b.id} {...common} extra={<AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align })} />}>
                   <div
                     ref={(el) => {
                       if (el) textRefs.current.set(b.id, el);
@@ -502,7 +571,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
             }
             if (b.kind === "image") {
               return (
-                <BlockChrome key={b.id} label="Image" {...common} extra={<AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align })} />}>
+                <BlockChrome key={b.id} {...common} extra={<AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align })} />}>
                   {imagePanelFor === b.id ? (
                     <ImagePicker
                       label="Remplacer par :"
@@ -521,7 +590,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                     <button type="button" className="btn" onClick={() => setImagePanelFor(imagePanelFor === b.id ? null : b.id)}>
                       Remplacer l'image
                     </button>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       Largeur
                       <input
                         type="number"
@@ -529,18 +598,18 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                         placeholder="auto"
                         value={b.width ?? ""}
                         onChange={(e) => updateBlock(b.id, { width: e.target.value ? Number(e.target.value) : null } as Partial<ImageBlock>)}
-                        style={{ width: 72, padding: "5px 8px", borderRadius: 6, border: "1px solid var(--line)" }}
+                        style={{ width: 72 }}
                       />
                       px
                     </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, flex: 1 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
                       Lien (optionnel)
                       <input
                         type="text"
                         placeholder="https://…"
                         value={b.href}
                         onChange={(e) => updateBlock(b.id, { href: e.target.value } as Partial<ImageBlock>)}
-                        style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1px solid var(--line)" }}
+                        style={{ flex: 1 }}
                       />
                     </label>
                   </div>
@@ -549,25 +618,20 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
             }
             if (b.kind === "button") {
               return (
-                <BlockChrome key={b.id} label="Bouton" {...common} extra={<AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align })} />}>
+                <BlockChrome key={b.id} {...common} extra={<AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align })} />}>
                   <div className="email-block-controls">
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       Texte
-                      <input
-                        type="text"
-                        value={b.label}
-                        onChange={(e) => updateBlock(b.id, { label: e.target.value } as Partial<ButtonBlock>)}
-                        style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid var(--line)" }}
-                      />
+                      <input type="text" value={b.label} onChange={(e) => updateBlock(b.id, { label: e.target.value } as Partial<ButtonBlock>)} />
                     </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, flex: 1 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
                       Lien
                       <input
                         type="text"
                         placeholder="https://…"
                         value={b.href}
                         onChange={(e) => updateBlock(b.id, { href: e.target.value } as Partial<ButtonBlock>)}
-                        style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1px solid var(--line)" }}
+                        style={{ flex: 1 }}
                       />
                     </label>
                     <label className="rich-editor-color" title="Couleur de fond">
@@ -580,7 +644,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                     </label>
                   </div>
                   <div className="email-block-image-preview" style={{ justifyContent: alignStyle(b.align) as "left" | "center" | "right" }}>
-                    <span style={{ background: b.bg, color: b.color, padding: "10px 22px", borderRadius: 6, fontWeight: 600, fontSize: 13.5, display: "inline-block" }}>
+                    <span style={{ background: b.bg, color: b.color, padding: "10px 22px", borderRadius: 2, fontWeight: 600, fontSize: 13.5, display: "inline-block" }}>
                       {b.label || "…"}
                     </span>
                   </div>
@@ -588,8 +652,10 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
               );
             }
             return (
-              <BlockChrome key={b.id} label="Séparateur" {...common}>
-                <hr style={{ border: "none", borderTop: "1px solid var(--line)", margin: 0 }} />
+              <BlockChrome key={b.id} {...common}>
+                <div style={{ padding: "14px 12px" }}>
+                  <hr style={{ border: "none", borderTop: "1px solid var(--line)", margin: 0 }} />
+                </div>
               </BlockChrome>
             );
           })}
@@ -597,7 +663,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
       )}
 
       {!rawMode && (
-        <div className="rich-editor-toolbar email-add-block-bar">
+        <div className="email-add-block-bar">
           <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Ajouter un bloc :</span>
           <button type="button" className="btn" onClick={() => addBlock("text")}>
             + Texte
