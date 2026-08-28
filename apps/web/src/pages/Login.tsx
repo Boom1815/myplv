@@ -24,7 +24,10 @@ export function Login({ onLoggedIn }: { onLoggedIn: (user: CurrentUser) => void 
   return (
     <div className="login-screen">
       <div className="login-card">
-        <h1>MYPLV</h1>
+        <h1>
+          <span className="brand-mark" aria-hidden="true" />
+          MYPLV
+        </h1>
         <p className="lede">Plateforme de prospection — accès privé.</p>
         {error && <div className="form-error">{error}</div>}
         <form onSubmit={handleSubmit}>

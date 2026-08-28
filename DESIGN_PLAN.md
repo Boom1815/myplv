@@ -13,27 +13,55 @@
   marque en dégradé, mouvement dosé (transitions courtes, respect de
   `prefers-reduced-motion`).
 
-## Files to Change
+## Files to Change — état réel après implémentation
 
-- [ ] `apps/web/src/styles/global.css` — tokens (`--accent-2`, `--accent-3`
-      pour bleu/magenta), coins de carte 12px, styles de survol/élévation,
-      halo/pastille génériques, dégradés de barres/pills.
-- [ ] `apps/web/src/App.tsx` — nav active en dégradé, `role-pill` en dégradé.
-- [ ] `apps/web/src/pages/Dashboard.tsx` — halo + pastille en en-tête, cartes
-      avec liseré par rôle, chiffre héros en dégradé texte.
-- [ ] `apps/web/src/pages/Prospects.tsx` — cartes/filtres, badges de score.
-- [ ] `apps/web/src/pages/Scoring.tsx`
-- [ ] `apps/web/src/pages/Blacklist.tsx`
-- [ ] `apps/web/src/pages/Sectors.tsx`
-- [ ] `apps/web/src/pages/GeographicZones.tsx`
-- [ ] `apps/web/src/pages/Offers.tsx`
-- [ ] `apps/web/src/pages/EmailTemplates.tsx` — cohérence avec l'éditeur de
-      blocs déjà en place (ne pas retoucher l'éditeur lui-même, juste
-      l'habillage de la page).
-- [ ] `apps/web/src/pages/Campaigns.tsx` — pills de statut en dégradé sobre.
-- [ ] `apps/web/src/pages/Login.tsx` — halo + pastille sur l'écran de connexion.
-- [ ] `apps/web/src/components/InfoTooltip.tsx` — vérifier cohérence visuelle
-      (pas de changement de fond attendu).
+- [x] `apps/web/src/styles/global.css` — tokens (`--accent` devient l'orange
+      primaire, `--accent-2` bleu, `--accent-3` magenta, avec variantes
+      `-ink`/`-soft` calibrées ≥4.5:1), `--radius-lg` 6px→12px, hover-lift
+      sur `.stat-tile`/`.campaign-card`/`.card-block--lift` (bordure+
+      déplacement, jamais d'ombre ajoutée — voir note "ghost card"
+      ci-dessous), modificateurs `.card-block--tier/--info/--meta` (liseré
+      1px, pas 3px comme envisagé dans le lab), nav active en dégradé,
+      `role-pill` en dégradé, halo `.page-head--hero`/`.login-screen::before`
+      + pastille `.brand-mark`, `.stat-value--accent` (texte dégradé, un
+      seul chiffre par écran).
+- [x] `apps/web/src/pages/Dashboard.tsx` — halo + pastille, 3 cartes avec
+      liseré par rôle + hover-lift, chiffre héros (éligibles email) en
+      dégradé.
+- [x] `apps/web/src/pages/Login.tsx` — halo + pastille sur l'écran de
+      connexion.
+- [x] `apps/web/src/App.tsx` — **aucune modif nécessaire** : nav/role-pill
+      consomment déjà les classes globales, le changement de token suffit.
+- [x] `apps/web/src/pages/Prospects.tsx`, `Scoring.tsx`, `Blacklist.tsx`,
+      `Sectors.tsx`, `GeographicZones.tsx`, `Offers.tsx`,
+      `EmailTemplates.tsx`, `Campaigns.tsx` — **aucune modif nécessaire**,
+      vérifié : zéro couleur en dur dans ces fichiers (audité par grep),
+      tout passe par les primitives partagées (`.card-block`, `.pill`,
+      `.score-tier`, `.btn`, `.filters`, `.table-wrap`) qui héritent
+      automatiquement du nouveau système de tokens. Confirmé visuellement
+      (captures Prospects + Campagnes) : cohérent, rien de cassé.
+
+### Écart assumé avec le Design Lab (jugement de craft, pas un oubli)
+
+- **Liseré coloré des cartes : 1px, pas 3px.** Le lab utilisait 3px ; la
+  charte qualité `impeccable` bannit les bordures colorées au-delà de 1px
+  (`craft-floor.md`, "Refuse"). L'esprit (une couleur de rôle sur l'arête)
+  est conservé, l'épaisseur resserrée.
+- **Aucune ombre ajoutée au survol.** Le mock du lab empilait une ombre
+  large sur la bordure existante ("ghost card", banni). L'élévation au
+  survol passe uniquement par un déplacement (`translateY`) + un
+  assombrissement de la bordure — cohérent avec `--shadow: none` déjà
+  posé dans le pass précédent.
+- **Barre de répartition par priorité inchangée** (dégradé à deux teintes
+  du lab non repris) : le code existant encode le score comme une
+  magnitude ordonnée (une seule teinte, opacité dégressive), pas des
+  catégories indépendantes — passer à deux familles de teintes aurait
+  réintroduit une lecture catégorielle trompeuse. Le changement de ton
+  (bleu → orange) s'applique automatiquement via le token, le principe
+  reste intact.
+- **Halo + pastille de marque réservés à Dashboard et Connexion**, pas
+  répétés sur chaque écran — un geste délibéré vaut mieux qu'un tampon
+  identique partout (`craft-floor.md`).
 
 ## Implementation Steps
 

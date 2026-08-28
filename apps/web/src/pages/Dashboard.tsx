@@ -36,11 +36,11 @@ const STATUS_LABELS: Record<string, string> = {
   ne_plus_contacter: "Ne plus contacter",
 };
 
-function StatTile({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function StatTile({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
     <div className="stat-tile">
       <span className="stat-label">{label}</span>
-      <span className="stat-value mono">{value}</span>
+      <span className={`stat-value mono${accent ? " stat-value--accent" : ""}`}>{value}</span>
       {sub && <span className="stat-sub">{sub}</span>}
     </div>
   );
@@ -78,8 +78,9 @@ export function Dashboard() {
 
   return (
     <div className="main">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Dashboard
           <InfoTooltip>
             <p>Vue d'ensemble de la prospection : combien d'entreprises sont collectées, combien sont qualifiées comme prospects, et combien peuvent recevoir un email.</p>
@@ -95,7 +96,7 @@ export function Dashboard() {
           value={stats.companies.total}
           sub={`${stats.companies.withEmail} avec email`}
         />
-        <StatTile label="Éligibles envoi email" value={stats.prospects.eligibleForEmail} />
+        <StatTile label="Éligibles envoi email" value={stats.prospects.eligibleForEmail} accent />
         <StatTile
           label="Très haute + haute priorité"
           value={(stats.prospects.byTier.tres_haute ?? 0) + (stats.prospects.byTier.haute ?? 0)}
@@ -103,7 +104,7 @@ export function Dashboard() {
       </div>
 
       <div className="dash-grid">
-        <div className="card-block">
+        <div className="card-block card-block--lift card-block--tier">
           <h3>
             Répartition par priorité
             <InfoTooltip>
@@ -150,7 +151,7 @@ export function Dashboard() {
           )}
         </div>
 
-        <div className="card-block">
+        <div className="card-block card-block--lift card-block--info">
           <h3>Statuts</h3>
           {statusEntries.length === 0 ? (
             <p className="lede" style={{ fontSize: 13.5 }}>
@@ -168,7 +169,7 @@ export function Dashboard() {
           )}
         </div>
 
-        <div className="card-block">
+        <div className="card-block card-block--lift card-block--meta">
           <h3>Dernier import</h3>
           {stats.lastImport ? (
             <dl className="import-meta">
