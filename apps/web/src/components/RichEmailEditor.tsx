@@ -46,6 +46,13 @@ const FONT_SIZES = [12, 13, 14, 16, 18, 20, 24, 28, 32];
 // "Original" pour revenir à la taille native du fichier.
 const AUTO_IMAGE_MAX = 400;
 
+// Largeur de colonne standard d'un email (en px) — même valeur que le
+// plafond des tables "outer/inner" générées par blocksToHtml et par
+// appendUnsubscribeFooter, pour que le contenu et le pied de page
+// s'alignent exactement sur la même colonne centrée dans tous les
+// clients mail (Outlook compris, qui ignore max-width en CSS).
+const EMAIL_WIDTH = 600;
+
 type Align = "left" | "center" | "right";
 
 type TextBlock = { id: string; kind: "text"; html: string; align: Align; role?: "footer" };
@@ -185,8 +192,26 @@ function blockToHtml(b: Block): string {
   return `<!--myplv:block:${b.kind}:${meta}-->${inner ? `<!--myplv:html:${btoa(unescape(encodeURIComponent(inner)))}-->` : ""}${blockBodyHtml(b)}<!--/myplv:block-->`;
 }
 
+/** Largeur de colonne standard d'un email — voir EMAIL_WIDTH plus haut. */
 export function blocksToHtml(blocks: Block[]): string {
-  return blocks.map((b) => `${blockToHtml(b)}<p>&nbsp;</p>`).join("\n");
+  const inner = blocks.map((b) => `${blockToHtml(b)}<p>&nbsp;</p>`).join("\n");
+  // Sans ce cadre, chaque bloc (table width="100%") se met à la largeur du
+  // corps de l'email — variable et souvent bien plus large que 600px selon
+  // le client (Outlook, Gmail grand écran…). Résultat observé : une image
+  // "Auto" (plafonnée à une largeur fixe en px) se retrouve centrée dans
+  // une colonne beaucoup plus large que le texte à côté, donc visuellement
+  // désaxée par rapport à lui — alors que dans notre propre aperçu (déjà
+  // capé à 600px par son propre CSS), tout semblait correctement centré.
+  // Le correctif : le motif email standard table 100% → <td align=center>
+  // → table width=600 fixe, qui garantit la même colonne partout, y
+  // compris dans Outlook (qui ignore max-width sur un <div>).
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;"><tr><td align="center" style="padding:24px 16px;">
+<table role="presentation" width="${EMAIL_WIDTH}" cellpadding="0" cellspacing="0" style="width:${EMAIL_WIDTH}px;max-width:${EMAIL_WIDTH}px;background:#ffffff;">
+<tr><td style="padding:24px;">
+${inner}
+</td></tr>
+</table>
+</td></tr></table>`;
 }
 
 const BLOCK_RE = /<!--myplv:block:(\w+):([\s\S]*?)-->(?:<!--myplv:html:([\s\S]*?)-->)?[\s\S]*?<!--\/myplv:block-->/g;
@@ -503,6 +528,7 @@ const BLOCK_PALETTE: { kind: Block["kind"]; icon: string; label: string }[] = [
 type DropPos = "before" | "after";
 
 function BlockChrome({
+  id,
   label,
   dragging,
   dropIndicator,
@@ -510,16 +536,16 @@ function BlockChrome({
   isLast,
   onMoveUp,
   onMoveDown,
-  onDragHandleStart,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-  onDragEnd,
+  onHandlePointerDown,
+  onHandlePointerMove,
+  onHandlePointerUp,
+  registerRef,
   onDelete,
   onSaveSnippet,
   extra,
   children,
 }: {
+  id: string;
   label: string;
   dragging: boolean;
   dropIndicator: DropPos | null;
@@ -527,32 +553,36 @@ function BlockChrome({
   isLast: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
-  onDragHandleStart: (e: React.DragEvent, blockEl: HTMLDivElement | null) => void;
-  onDragOver: (e: React.DragEvent, blockEl: HTMLDivElement | null) => void;
-  onDragLeave: () => void;
-  onDrop: (e: React.DragEvent) => void;
-  onDragEnd: () => void;
+  onHandlePointerDown: (e: React.PointerEvent<HTMLSpanElement>) => void;
+  onHandlePointerMove: (e: React.PointerEvent<HTMLSpanElement>) => void;
+  onHandlePointerUp: (e: React.PointerEvent<HTMLSpanElement>) => void;
+  registerRef: (id: string, el: HTMLDivElement | null) => void;
   onDelete: () => void;
   onSaveSnippet: () => void;
   extra?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const blockRef = useRef<HTMLDivElement>(null);
   return (
-    <div
-      ref={blockRef}
-      className={`email-block ${dragging ? "is-dragging" : ""} ${dropIndicator ? `drop-${dropIndicator}` : ""}`}
-      onDragOver={(e) => onDragOver(e, blockRef.current)}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-    >
+    <div ref={(el) => registerRef(id, el)} className={`email-block ${dragging ? "is-dragging" : ""} ${dropIndicator ? `drop-${dropIndicator}` : ""}`}>
       <div className="email-block-head">
-        <span className="block-drag-handle" title="Glisser pour réordonner" draggable onDragStart={(e) => onDragHandleStart(e, blockRef.current)} onDragEnd={onDragEnd}>
+        {/* Pointer Events + setPointerCapture plutôt que le drag-and-drop
+            HTML5 natif : ce dernier repose sur le protocole de drag de l'OS
+            et se montre capricieux selon souris/trackpad. La capture de
+            pointeur garde tous les événements sur cette poignée même quand
+            le curseur sort de ses limites — fiable partout. Les flèches
+            ↑ / ↓ restent en secours pour les déplacements sur de longues
+            distances. */}
+        <span
+          className="block-drag-handle"
+          title="Glisser pour réordonner"
+          style={{ touchAction: "none" }}
+          onPointerDown={onHandlePointerDown}
+          onPointerMove={onHandlePointerMove}
+          onPointerUp={onHandlePointerUp}
+          onPointerCancel={onHandlePointerUp}
+        >
           ⠿
         </span>
-        {/* Le glisser-déposer natif peut être capricieux selon la souris/le
-            trackpad — ces flèches garantissent toujours un moyen de
-            réordonner, même quand le drag ne "prend" pas. */}
         <button type="button" className="icon-btn" title="Monter" disabled={isFirst} onClick={onMoveUp}>
           ↑
         </button>
@@ -602,10 +632,23 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   }
 
   // Glisser-déposer : id du bloc en cours de déplacement + id du bloc
-  // survolé et position (avant/après) pour l'indicateur visuel.
+  // survolé et position (avant/après) pour l'indicateur visuel. blockElRefs
+  // donne accès aux positions de tous les blocs pendant le déplacement du
+  // pointeur (nécessaire puisque tous les événements sont capturés sur la
+  // seule poignée en cours de glissement, pas sur les blocs survolés).
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [overPos, setOverPos] = useState<DropPos | null>(null);
+  const blockElRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    if (!dragId) return;
+    const prevUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+    return () => {
+      document.body.style.userSelect = prevUserSelect;
+    };
+  }, [dragId]);
 
   // Blocs réutilisables et mises en page enregistrées (localStorage).
   const [snippets, setSnippets] = useState<Snippet[]>(() => readLocal(SNIPPETS_KEY, [] as Snippet[]));
@@ -643,6 +686,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     initialHtmlRef.current.delete(id);
     textRefs.current.delete(id);
     imgRefs.current.delete(id);
+    blockElRefs.current.delete(id);
     commit(blocks.filter((b) => b.id !== id));
   }
 
@@ -708,43 +752,65 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     setShowLayouts(false);
   }
 
-  function handleDragHandleStart(e: React.DragEvent, blockId: string, blockEl: HTMLDivElement | null) {
+  function registerBlockRef(id: string, el: HTMLDivElement | null) {
+    if (el) blockElRefs.current.set(id, el);
+    else blockElRefs.current.delete(id);
+  }
+
+  function handleHandlePointerDown(e: React.PointerEvent<HTMLSpanElement>, blockId: string) {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
     setDragId(blockId);
-    e.dataTransfer.effectAllowed = "move";
-    if (blockEl) {
-      const rect = blockEl.getBoundingClientRect();
-      e.dataTransfer.setDragImage(blockEl, Math.min(24, rect.width / 2), 14);
+  }
+
+  function handleHandlePointerMove(e: React.PointerEvent<HTMLSpanElement>) {
+    if (!dragId) return;
+    const y = e.clientY;
+    let bestId: string | null = null;
+    let bestPos: DropPos = "before";
+    let bestDist = Infinity;
+    for (const [id, el] of blockElRefs.current) {
+      if (id === dragId) continue;
+      const rect = el.getBoundingClientRect();
+      if (y >= rect.top && y <= rect.bottom) {
+        bestId = id;
+        bestPos = y - rect.top > rect.height / 2 ? "after" : "before";
+        bestDist = 0;
+        break;
+      }
+      const centerDist = Math.abs(y - (rect.top + rect.bottom) / 2);
+      if (centerDist < bestDist) {
+        bestDist = centerDist;
+        bestId = id;
+        bestPos = y < rect.top ? "before" : "after";
+      }
+    }
+    if (bestId) {
+      setOverId(bestId);
+      setOverPos(bestPos);
     }
   }
 
-  function handleDragOver(e: React.DragEvent, blockId: string, blockEl: HTMLDivElement | null) {
-    if (!dragId || dragId === blockId) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    const rect = blockEl?.getBoundingClientRect();
-    const pos: DropPos = rect && e.clientY - rect.top > rect.height / 2 ? "after" : "before";
-    setOverId(blockId);
-    setOverPos(pos);
+  function handleHandlePointerUp(e: React.PointerEvent<HTMLSpanElement>) {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    commitDrop();
   }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    if (!dragId || !overId || dragId === overId) {
-      resetDrag();
-      return;
+  function commitDrop() {
+    if (dragId && overId && dragId !== overId) {
+      const fromIdx = blocks.findIndex((b) => b.id === dragId);
+      const toIdx = blocks.findIndex((b) => b.id === overId);
+      if (fromIdx >= 0 && toIdx >= 0) {
+        const next = [...blocks];
+        const [moved] = next.splice(fromIdx, 1);
+        let insertAt = next.findIndex((b) => b.id === overId);
+        if (overPos === "after") insertAt += 1;
+        next.splice(insertAt, 0, moved);
+        commit(next);
+      }
     }
-    const fromIdx = blocks.findIndex((b) => b.id === dragId);
-    const toIdx = blocks.findIndex((b) => b.id === overId);
-    if (fromIdx < 0 || toIdx < 0) {
-      resetDrag();
-      return;
-    }
-    const next = [...blocks];
-    const [moved] = next.splice(fromIdx, 1);
-    let insertAt = next.findIndex((b) => b.id === overId);
-    if (overPos === "after") insertAt += 1;
-    next.splice(insertAt, 0, moved);
-    commit(next);
     resetDrag();
   }
 
@@ -909,6 +975,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
           {blocks.length === 0 && <div className="empty-state">Aucun bloc — ajoute-en un ci-dessous.</div>}
           {blocks.map((b, i) => {
             const common = {
+              id: b.id,
               label: labelFor(b),
               dragging: dragId === b.id,
               dropIndicator: overId === b.id && dragId && dragId !== b.id ? overPos : null,
@@ -916,16 +983,10 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
               isLast: i === blocks.length - 1,
               onMoveUp: () => moveBlock(b.id, -1),
               onMoveDown: () => moveBlock(b.id, 1),
-              onDragHandleStart: (e: React.DragEvent, el: HTMLDivElement | null) => handleDragHandleStart(e, b.id, el),
-              onDragOver: (e: React.DragEvent, el: HTMLDivElement | null) => handleDragOver(e, b.id, el),
-              onDragLeave: () => {
-                if (overId === b.id) {
-                  setOverId(null);
-                  setOverPos(null);
-                }
-              },
-              onDrop: handleDrop,
-              onDragEnd: resetDrag,
+              onHandlePointerDown: (e: React.PointerEvent<HTMLSpanElement>) => handleHandlePointerDown(e, b.id),
+              onHandlePointerMove: handleHandlePointerMove,
+              onHandlePointerUp: handleHandlePointerUp,
+              registerRef: registerBlockRef,
               onDelete: () => deleteBlock(b.id),
               onSaveSnippet: () => handleSaveSnippet(b),
             };

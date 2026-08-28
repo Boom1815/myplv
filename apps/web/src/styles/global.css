@@ -656,22 +656,29 @@ a {
   background: var(--surface);
 }
 
-table {
+/* Portées à .table-wrap (nos tableaux de données) plutôt qu'à l'élément
+   `table` nu : sinon ces règles s'appliquent aussi aux tableaux injectés
+   via dangerouslySetInnerHTML dans l'aperçu email (RichEmailEditor), où
+   elles ne sont pas censées agir — c'était la vraie cause du mauvais
+   centrage des images signalé dans l'éditeur : min-width:720px forçait
+   la colonne email (600px, alignée sur le motif email standard) à
+   s'élargir bien au-delà de sa largeur voulue. */
+.table-wrap table {
   border-collapse: collapse;
   width: 100%;
   min-width: 720px;
   font-size: 13.5px;
 }
 
-th,
-td {
+.table-wrap th,
+.table-wrap td {
   text-align: left;
   padding: 12px 16px;
   border-bottom: 1px solid var(--line-soft);
   white-space: nowrap;
 }
 
-thead th {
+.table-wrap thead th {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   text-transform: uppercase;
@@ -681,7 +688,7 @@ thead th {
   border-bottom: 1px solid var(--line);
 }
 
-tbody tr:hover {
+.table-wrap tbody tr:hover {
   background: var(--line-soft);
 }
 
@@ -1415,18 +1422,27 @@ tbody tr:hover {
 
 .rich-editor-preview-body {
   padding: 20px;
+  display: flex;
+  justify-content: center;
 }
 
+/* Le HTML injecté (blocksToHtml) apporte déjà sa propre colonne 600px
+   blanche sur fond gris — même motif "table 100% -> td align=center ->
+   table width=600" qu'un vrai email. Le cadre ne doit donc plus poser sa
+   propre boîte (fond/bordure/padding), sous peine de double encadrement :
+   il se contente de centrer et de laisser le contenu injecté prendre sa
+   largeur naturelle. */
 .rich-editor-preview-frame {
-  max-width: 600px;
-  margin: 0 auto;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  padding: 24px;
+  display: inline-block;
+  max-width: 100%;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 14px;
   color: #1c2230;
   line-height: 1.6;
+}
+
+.rich-editor-preview-frame > table {
+  max-width: 100%;
 }
 
 .rich-editor-preview-frame img {

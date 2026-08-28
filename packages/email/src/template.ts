@@ -48,17 +48,35 @@ export const SAMPLE_VARIABLES: TemplateVariables = {
   lien: "https://myplv.be",
 };
 
+// Même largeur de colonne que celle utilisée par blocksToHtml côté éditeur
+// (apps/web/src/components/RichEmailEditor.tsx) — le pied de page doit
+// s'aligner sur la même colonne centrée que le corps du template, pas
+// s'étaler sur toute la largeur du client mail.
+const EMAIL_WIDTH = 600;
+
 /**
  * Pied de page de désinscription — brief section 41 : un lien de
  * désinscription fonctionnel sur CHAQUE email de campagne, jamais optionnel
  * ni laissé à la rédaction du template. Ajouté au moment de l'envoi, pas
  * éditable depuis l'écran Templates.
+ *
+ * Enveloppé dans le même motif "table 100% -> td align=center -> table
+ * width=600" que le corps : ajouté tel quel après un bodyHtml déjà
+ * centré sur 600px, un simple <p> pleine largeur retombait sur toute la
+ * largeur du client mail et se retrouvait visuellement désaligné par
+ * rapport au contenu au-dessus.
  */
 export function appendUnsubscribeFooter(bodyHtml: string, unsubscribeUrl: string): string {
   return `${bodyHtml}
-<hr style="border:none;border-top:1px solid #D8DCD3;margin:28px 0 14px;">
-<p style="font-family:system-ui,sans-serif;font-size:12px;color:#7b8494;line-height:1.5;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;"><tr><td align="center" style="padding:0 16px 24px;">
+<table role="presentation" width="${EMAIL_WIDTH}" cellpadding="0" cellspacing="0" style="width:${EMAIL_WIDTH}px;max-width:${EMAIL_WIDTH}px;">
+<tr><td style="padding:0 24px;">
+<hr style="border:none;border-top:1px solid #D8DCD3;margin:14px 0;">
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#7b8494;line-height:1.5;margin:0 0 14px;">
   Vous recevez cet email dans le cadre d'une démarche de prospection commerciale de MYPLV.
-  <a href="${unsubscribeUrl}" style="color:#2c4a9e;">Se désinscrire</a>
-</p>`;
+  <a href="${unsubscribeUrl}" style="color:#a33907;">Se désinscrire</a>
+</p>
+</td></tr>
+</table>
+</td></tr></table>`;
 }
