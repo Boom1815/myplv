@@ -536,7 +536,7 @@ function BlockChrome({
   isLast,
   onMoveUp,
   onMoveDown,
-  onHandlePointerDown,
+  onHeadPointerDown,
   onHandlePointerMove,
   onHandlePointerUp,
   registerRef,
@@ -553,9 +553,9 @@ function BlockChrome({
   isLast: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
-  onHandlePointerDown: (e: React.PointerEvent<HTMLSpanElement>) => void;
-  onHandlePointerMove: (e: React.PointerEvent<HTMLSpanElement>) => void;
-  onHandlePointerUp: (e: React.PointerEvent<HTMLSpanElement>) => void;
+  onHeadPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onHandlePointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
+  onHandlePointerUp: (e: React.PointerEvent<HTMLDivElement>) => void;
   registerRef: (id: string, el: HTMLDivElement | null) => void;
   onDelete: () => void;
   onSaveSnippet: () => void;
@@ -564,23 +564,17 @@ function BlockChrome({
 }) {
   return (
     <div ref={(el) => registerRef(id, el)} className={`email-block ${dragging ? "is-dragging" : ""} ${dropIndicator ? `drop-${dropIndicator}` : ""}`}>
-      <div className="email-block-head">
-        {/* Pointer Events + setPointerCapture plutôt que le drag-and-drop
-            HTML5 natif : ce dernier repose sur le protocole de drag de l'OS
-            et se montre capricieux selon souris/trackpad. La capture de
-            pointeur garde tous les événements sur cette poignée même quand
-            le curseur sort de ses limites — fiable partout. Les flèches
-            ↑ / ↓ restent en secours pour les déplacements sur de longues
-            distances. */}
-        <span
-          className="block-drag-handle"
-          title="Glisser pour réordonner"
-          style={{ touchAction: "none" }}
-          onPointerDown={onHandlePointerDown}
-          onPointerMove={onHandlePointerMove}
-          onPointerUp={onHandlePointerUp}
-          onPointerCancel={onHandlePointerUp}
-        >
+      {/* Pointer Events + setPointerCapture plutôt que le drag-and-drop HTML5
+          natif : ce dernier repose sur le protocole de drag de l'OS et se
+          montre capricieux selon souris/trackpad. La capture de pointeur
+          garde tous les événements sur cette barre même quand le curseur
+          sort de ses limites — fiable partout. Toute la barre-titre est
+          la zone de glisser (pas seulement l'icône ⠿) pour une cible plus
+          confortable ; les boutons (↑ ↓ 💾 ✕) sont exclus dans le handler
+          pour garder leur clic normal. Les flèches ↑ / ↓ restent un moyen
+          de réordonner sans glisser du tout. */}
+      <div className="email-block-head" style={{ touchAction: "none" }} onPointerDown={onHeadPointerDown} onPointerMove={onHandlePointerMove} onPointerUp={onHandlePointerUp} onPointerCancel={onHandlePointerUp}>
+        <span className="block-drag-handle" title="Glisser pour réordonner" aria-hidden="true">
           ⠿
         </span>
         <button type="button" className="icon-btn" title="Monter" disabled={isFirst} onClick={onMoveUp}>
@@ -631,24 +625,40 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     return initialHtmlRef.current.get(id)!;
   }
 
-  // Glisser-déposer : id du bloc en cours de déplacement + id du bloc
-  // survolé et position (avant/après) pour l'indicateur visuel. blockElRefs
-  // donne accès aux positions de tous les blocs pendant le déplacement du
-  // pointeur (nécessaire puisque tous les événements sont capturés sur la
-  // seule poignée en cours de glissement, pas sur les blocs survolés).
+  // Glisser-déposer : id du bloc existant en cours de déplacement (réordre)
+  // OU paletteDragging quand c'est un nouveau bloc glissé depuis la barre
+  // latérale (palette / blocs enregistrés) — dans les deux cas, overId/overPos
+  // indiquent le bloc survolé et la position (avant/après) pour l'indicateur
+  // visuel. blockElRefs donne accès aux positions de tous les blocs pendant
+  // le déplacement du pointeur (nécessaire puisque tous les événements sont
+  // capturés sur le seul élément en cours de glissement, pas sur les blocs
+  // survolés).
   const [dragId, setDragId] = useState<string | null>(null);
+  const [paletteDragging, setPaletteDragging] = useState(false);
   const [overId, setOverId] = useState<string | null>(null);
   const [overPos, setOverPos] = useState<DropPos | null>(null);
   const blockElRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  // Fabrique du bloc à insérer, posée au pointerdown sur un item de la
+  // palette / bibliothèque, lue au drop — évite de stocker le bloc en state
+  // React (inutile avant qu'on sache si on glisse vraiment, voir seuil plus
+  // bas) et contourne le problème de closure obsolète (l'état React mis à
+  // jour par setPaletteDragging n'est pas encore visible dans le même
+  // gestionnaire d'événement).
+  const paletteDragRef = useRef<{ makeBlock: () => Block; startX: number; startY: number; dragging: boolean } | null>(null);
+  // Voir handlePaletteDragEnd : un clic natif suit un glisser réel à cause
+  // de la redirection des événements de compatibilité par la capture de
+  // pointeur — ce drapeau permet aux onClick des cartes de l'ignorer une
+  // fois pour éviter un double ajout.
+  const suppressNextClickRef = useRef(false);
 
   useEffect(() => {
-    if (!dragId) return;
+    if (!dragId && !paletteDragging) return;
     const prevUserSelect = document.body.style.userSelect;
     document.body.style.userSelect = "none";
     return () => {
       document.body.style.userSelect = prevUserSelect;
     };
-  }, [dragId]);
+  }, [dragId, paletteDragging]);
 
   // Blocs réutilisables et mises en page enregistrées (localStorage).
   const [snippets, setSnippets] = useState<Snippet[]>(() => readLocal(SNIPPETS_KEY, [] as Snippet[]));
@@ -699,20 +709,37 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     commit(next);
   }
 
+  function makeBlockForKind(kind: Block["kind"]): Block {
+    switch (kind) {
+      case "text":
+        return defaultTextBlock();
+      case "image":
+        return defaultImageBlock("https://placehold.co/560x260/eef1f6/7b8494?text=Image");
+      case "button":
+        return defaultButtonBlock();
+      case "spacer":
+        return defaultSpacerBlock();
+      case "social":
+        return defaultSocialBlock();
+      case "divider":
+        return defaultDividerBlock();
+    }
+  }
+
   function addBlock(kind: Block["kind"]) {
-    const block: Block =
-      kind === "text"
-        ? defaultTextBlock()
-        : kind === "image"
-          ? defaultImageBlock("https://placehold.co/560x260/eef1f6/7b8494?text=Image")
-          : kind === "button"
-            ? defaultButtonBlock()
-            : kind === "spacer"
-              ? defaultSpacerBlock()
-              : kind === "social"
-                ? defaultSocialBlock()
-                : defaultDividerBlock();
-    commit([...blocks, block]);
+    commit([...blocks, makeBlockForKind(kind)]);
+  }
+
+  /** Insère `block` à l'emplacement visé par le glisser en cours (overId/overPos), ou en fin de liste si aucun bloc n'est survolé. */
+  function insertAtDropTarget(block: Block) {
+    const next = [...blocks];
+    const idx = overId ? next.findIndex((b) => b.id === overId) : -1;
+    if (idx < 0) {
+      next.push(block);
+    } else {
+      next.splice(overPos === "after" ? idx + 1 : idx, 0, block);
+    }
+    commit(next);
   }
 
   function handleSaveSnippet(block: Block) {
@@ -757,20 +784,13 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     else blockElRefs.current.delete(id);
   }
 
-  function handleHandlePointerDown(e: React.PointerEvent<HTMLSpanElement>, blockId: string) {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setDragId(blockId);
-  }
-
-  function handleHandlePointerMove(e: React.PointerEvent<HTMLSpanElement>) {
-    if (!dragId) return;
-    const y = e.clientY;
+  /** Calcule, à partir de la position Y du pointeur, le bloc survolé et s'il faut s'insérer avant ou après lui — partagé par le réordre et le glisser depuis la palette. */
+  function updateDropTarget(y: number, excludeId?: string | null) {
     let bestId: string | null = null;
     let bestPos: DropPos = "before";
     let bestDist = Infinity;
     for (const [id, el] of blockElRefs.current) {
-      if (id === dragId) continue;
+      if (id === excludeId) continue;
       const rect = el.getBoundingClientRect();
       if (y >= rect.top && y <= rect.bottom) {
         bestId = id;
@@ -791,14 +811,26 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     }
   }
 
-  function handleHandlePointerUp(e: React.PointerEvent<HTMLSpanElement>) {
+  // --- Réordre d'un bloc existant (poignée + barre-titre du bloc) ---
+
+  function handleHeadPointerDown(e: React.PointerEvent<HTMLDivElement>, blockId: string) {
+    // Les boutons (↑ ↓ 💾 ✕) gardent leur clic normal — seule la barre
+    // elle-même (poignée, libellé, zone vide) déclenche un glisser.
+    if ((e.target as HTMLElement).closest("button")) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragId(blockId);
+  }
+
+  function handleHandlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragId) return;
+    updateDropTarget(e.clientY, dragId);
+  }
+
+  function handleHandlePointerUp(e: React.PointerEvent<HTMLDivElement>) {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
-    commitDrop();
-  }
-
-  function commitDrop() {
     if (dragId && overId && dragId !== overId) {
       const fromIdx = blocks.findIndex((b) => b.id === dragId);
       const toIdx = blocks.findIndex((b) => b.id === overId);
@@ -814,8 +846,53 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     resetDrag();
   }
 
+  // --- Glisser un nouveau bloc depuis la palette / bibliothèque ---
+  // Un simple clic doit continuer à ajouter en fin de liste (comportement
+  // existant) : on ne bascule en "glisser" qu'après un déplacement réel du
+  // pointeur (seuil de 6px), pour ne jamais perturber onClick.
+
+  function handlePaletteDragStart(e: React.PointerEvent<HTMLButtonElement>, makeBlock: () => Block) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    paletteDragRef.current = { makeBlock, startX: e.clientX, startY: e.clientY, dragging: false };
+  }
+
+  function handlePaletteDragMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = paletteDragRef.current;
+    if (!drag) return;
+    if (!drag.dragging) {
+      if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < 6) return;
+      drag.dragging = true;
+      setPaletteDragging(true);
+    }
+    updateDropTarget(e.clientY);
+  }
+
+  function handlePaletteDragEnd(e: React.PointerEvent<HTMLButtonElement>) {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    const drag = paletteDragRef.current;
+    paletteDragRef.current = null;
+    if (drag?.dragging) {
+      insertAtDropTarget(drag.makeBlock());
+      // La capture de pointeur redirige aussi l'événement "mouseup" de
+      // compatibilité vers ce bouton (même si le pointeur a physiquement
+      // fini ailleurs), donc un clic natif se déclenche quand même juste
+      // après — on l'ignore une fois pour ne pas ajouter le bloc une
+      // seconde fois en fin de liste.
+      suppressNextClickRef.current = true;
+      setTimeout(() => {
+        suppressNextClickRef.current = false;
+      }, 0);
+    }
+    resetDrag();
+    // Si aucun glisser réel n'a eu lieu (drag est resté falsy), on laisse le
+    // onClick natif du bouton gérer l'ajout simple en fin de liste.
+  }
+
   function resetDrag() {
     setDragId(null);
+    setPaletteDragging(false);
     setOverId(null);
     setOverPos(null);
   }
@@ -939,7 +1016,20 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
             <div className="rich-editor-sidebar-head">Ajouter un bloc</div>
             <div className="block-palette">
               {BLOCK_PALETTE.map((p) => (
-                <button key={p.kind} type="button" className="block-palette-card" onClick={() => addBlock(p.kind)}>
+                <button
+                  key={p.kind}
+                  type="button"
+                  className="block-palette-card"
+                  style={{ touchAction: "none" }}
+                  onClick={() => {
+                    if (suppressNextClickRef.current) return;
+                    addBlock(p.kind);
+                  }}
+                  onPointerDown={(e) => handlePaletteDragStart(e, () => makeBlockForKind(p.kind))}
+                  onPointerMove={handlePaletteDragMove}
+                  onPointerUp={handlePaletteDragEnd}
+                  onPointerCancel={handlePaletteDragEnd}
+                >
                   <span className="block-palette-icon">{p.icon}</span>
                   <span>{p.label}</span>
                 </button>
@@ -954,7 +1044,19 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
               ) : (
                 snippets.map((s) => (
                   <div key={s.id} className="block-library-item">
-                    <button type="button" className="name-btn" onClick={() => insertSnippet(s)}>
+                    <button
+                      type="button"
+                      className="name-btn"
+                      style={{ touchAction: "none" }}
+                      onClick={() => {
+                        if (suppressNextClickRef.current) return;
+                        insertSnippet(s);
+                      }}
+                      onPointerDown={(e) => handlePaletteDragStart(e, () => cloneWithNewId(s.block))}
+                      onPointerMove={handlePaletteDragMove}
+                      onPointerUp={handlePaletteDragEnd}
+                      onPointerCancel={handlePaletteDragEnd}
+                    >
                       {s.name}
                     </button>
                     <button type="button" className="icon-btn danger" title="Supprimer ce bloc enregistré" onClick={() => deleteSnippet(s.id)}>
@@ -978,12 +1080,12 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
               id: b.id,
               label: labelFor(b),
               dragging: dragId === b.id,
-              dropIndicator: overId === b.id && dragId && dragId !== b.id ? overPos : null,
+              dropIndicator: (dragId || paletteDragging) && overId === b.id && dragId !== b.id ? overPos : null,
               isFirst: i === 0,
               isLast: i === blocks.length - 1,
               onMoveUp: () => moveBlock(b.id, -1),
               onMoveDown: () => moveBlock(b.id, 1),
-              onHandlePointerDown: (e: React.PointerEvent<HTMLSpanElement>) => handleHandlePointerDown(e, b.id),
+              onHeadPointerDown: (e: React.PointerEvent<HTMLDivElement>) => handleHeadPointerDown(e, b.id),
               onHandlePointerMove: handleHandlePointerMove,
               onHandlePointerUp: handleHandlePointerUp,
               registerRef: registerBlockRef,

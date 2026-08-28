@@ -1206,10 +1206,21 @@ a {
   gap: 4px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--line-soft);
+  /* Toute la barre est la zone de glisser, pas seulement l'icône ⠿ — cible
+     plus confortable. Les boutons ré-affirment leur propre curseur juste
+     en dessous, puisque cursor est hérité. */
+  cursor: grab;
+}
+
+.email-block.is-dragging .email-block-head {
+  cursor: grabbing;
+}
+
+.email-block-head .icon-btn {
+  cursor: pointer;
 }
 
 .block-drag-handle {
-  cursor: grab;
   color: var(--ink-faint);
   font-size: 13px;
   letter-spacing: -1px;
@@ -1218,13 +1229,9 @@ a {
   user-select: none;
 }
 
-.block-drag-handle:hover {
+.email-block-head:hover .block-drag-handle {
   color: var(--ink);
   background: var(--line-soft);
-}
-
-.email-block.is-dragging .block-drag-handle {
-  cursor: grabbing;
 }
 
 .email-block-label {
@@ -1370,6 +1377,9 @@ a {
   color: var(--ink);
   font-size: 13px;
   text-align: left;
+  /* Cliquable (ajoute en fin de liste) ET glissable (dépose à l'endroit
+     visé) — voir handlePaletteDragStart dans RichEmailEditor. */
+  cursor: grab;
 }
 
 .block-palette-card:hover {
