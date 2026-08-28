@@ -103,8 +103,9 @@ export function Prospects({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="main">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Prospects
           <InfoTooltip>Chaque ligne est une entreprise qualifiée (voir Scoring). Les tags sont libres — utilise-les pour marquer un suivi personnel (ex. « appelé », « HOT »), ils n'affectent ni le score ni les campagnes.</InfoTooltip>
         </h1>

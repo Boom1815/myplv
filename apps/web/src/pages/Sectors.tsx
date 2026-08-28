@@ -65,8 +65,9 @@ export function Sectors({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="main">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Secteurs
           <InfoTooltip>Un secteur métier (Horeca, Construction…) regroupe des codes NACE — la classification officielle des activités. À l'import, chaque entreprise est rattachée automatiquement au secteur dont un de ses codes NACE fait partie.</InfoTooltip>
         </h1>

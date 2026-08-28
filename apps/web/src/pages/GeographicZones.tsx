@@ -57,8 +57,9 @@ export function GeographicZones({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="main">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Zones géographiques
           <InfoTooltip>La zone de prospection couvre par défaut 4 provinces. Ici tu ajoutes des exceptions ponctuelles — une commune à inclure ou exclure précisément, même hors de ces provinces.</InfoTooltip>
         </h1>

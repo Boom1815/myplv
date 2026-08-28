@@ -59,8 +59,9 @@ export function Blacklist({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="main">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Liste noire
           <InfoTooltip>Chaque règle exclut automatiquement les entreprises correspondantes — dès l'import, avant tout scoring ou envoi. Choisis le type qui décrit le mieux ce que tu veux bloquer (un mot dans le nom, une commune, une adresse précise…).</InfoTooltip>
         </h1>

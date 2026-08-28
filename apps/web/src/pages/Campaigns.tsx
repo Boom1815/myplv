@@ -265,8 +265,9 @@ export function Campaigns({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="main">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Campagnes
           <InfoTooltip>
             <p>

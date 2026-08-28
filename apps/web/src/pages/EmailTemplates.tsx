@@ -96,8 +96,9 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="main main-wide">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Templates email
           <InfoTooltip>
             <p>Le contenu (sujet + corps) que tu rédiges ici, avec des variables comme {"{{prenom}}"} ou {"{{entreprise}}"} qui sont remplacées automatiquement par les vraies données de chaque prospect au moment de l'envoi.</p>

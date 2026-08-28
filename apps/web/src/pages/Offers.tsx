@@ -45,8 +45,9 @@ export function Offers({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="main">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Offres
           <InfoTooltip>Une offre commerciale, reliée à une campagne (écran Campagnes) — son nom et son lien remplissent automatiquement les variables {"{{offre}}"} et {"{{lien}}"} dans les templates email.</InfoTooltip>
         </h1>

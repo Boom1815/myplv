@@ -63,8 +63,9 @@ export function Scoring({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="main">
-      <div className="page-head">
+      <div className="page-head page-head--hero">
         <h1>
+          <span className="brand-mark" aria-hidden="true" />
           Scoring
           <InfoTooltip>
             <p>Chaque règle ajoute (ou retire) des points à un prospect quand sa condition est vraie — le total détermine sa priorité (voir Dashboard).</p>
