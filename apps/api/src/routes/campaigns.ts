@@ -7,6 +7,7 @@ import {
   generateUnsubscribeToken,
   renderTemplate,
   SAMPLE_VARIABLES,
+  SIGNATURE_SETTINGS_KEY,
   type TemplateVariables,
 } from "@myplv/email";
 import type { AppBindings } from "../env";
@@ -16,6 +17,15 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 export const campaignsRoutes = new Hono<AppBindings>();
 
 campaignsRoutes.use("*", requireAuth);
+
+/** Signature email globale (voir routes/signature.ts) — ajoutée entre le corps du template et le pied de page de désinscription, sur CHAQUE envoi. Chaîne vide si jamais configurée : aucun changement au comportement existant. */
+async function getSignatureBodyHtml(db: ReturnType<typeof createDbForEnv>): Promise<string> {
+  const [row] = await db.select().from(schema.settings).where(eq(schema.settings.key, SIGNATURE_SETTINGS_KEY));
+  const value = row?.value;
+  return value && typeof value === "object" && typeof (value as { bodyHtml?: unknown }).bodyHtml === "string"
+    ? (value as { bodyHtml: string }).bodyHtml
+    : "";
+}
 
 /** Filtres d'audience supportés — cases à cocher combinées en ET entre catégories, OU à l'intérieur d'une même catégorie (ex. Hainaut OU Namur, ET secteur Horeca). Une catégorie vide = pas de restriction sur ce critère. */
 type SegmentFilter = {
@@ -352,6 +362,8 @@ campaignsRoutes.post("/:id/steps/:stepId/send", requireAdmin, async (c) => {
   const [template] = await db.select().from(schema.emailTemplates).where(eq(schema.emailTemplates.id, step.emailTemplateId));
   if (!template) return c.json({ error: "invalid_request", message: "Template introuvable." }, 400);
 
+  const signatureBodyHtml = await getSignatureBodyHtml(db);
+
   const offer = campaign.offerId ? (await db.select().from(schema.offers).where(eq(schema.offers.id, campaign.offerId)))[0] : undefined;
 
   const filter = parseSegmentFilter(campaign.segmentFilter);
@@ -465,7 +477,8 @@ campaignsRoutes.post("/:id/steps/:stepId/send", requireAdmin, async (c) => {
     const token = await generateUnsubscribeToken(p.email!, c.env.AUTH_SECRET);
     const unsubscribeUrl = `${apiOrigin}/api/unsubscribe?email=${encodeURIComponent(p.email!)}&token=${token}`;
     const subject = renderTemplate(template.subject, vars);
-    const htmlContent = appendUnsubscribeFooter(renderTemplate(template.bodyHtml, vars), unsubscribeUrl);
+    const bodyWithSignature = renderTemplate(template.bodyHtml, vars) + renderTemplate(signatureBodyHtml, vars);
+    const htmlContent = appendUnsubscribeFooter(bodyWithSignature, unsubscribeUrl);
 
     const result = await provider.send({
       to: { email: p.email!, name: p.companyName },
@@ -550,6 +563,8 @@ campaignsRoutes.post("/:id/steps/:stepId/test", requireAdmin, async (c) => {
   const [template] = await db.select().from(schema.emailTemplates).where(eq(schema.emailTemplates.id, step.emailTemplateId));
   if (!template) return c.json({ error: "invalid_request", message: "Template introuvable." }, 400);
 
+  const signatureBodyHtml = await getSignatureBodyHtml(db);
+
   const offer = campaign.offerId ? (await db.select().from(schema.offers).where(eq(schema.offers.id, campaign.offerId)))[0] : undefined;
   const vars: TemplateVariables = { ...SAMPLE_VARIABLES, offre: offer?.name ?? SAMPLE_VARIABLES.offre, lien: offer?.landingUrl ?? SAMPLE_VARIABLES.lien };
 
@@ -557,7 +572,8 @@ campaignsRoutes.post("/:id/steps/:stepId/test", requireAdmin, async (c) => {
   const token = await generateUnsubscribeToken(to, c.env.AUTH_SECRET);
   const unsubscribeUrl = `${apiOrigin}/api/unsubscribe?email=${encodeURIComponent(to)}&token=${token}`;
   const subject = `[TEST] ${renderTemplate(template.subject, vars)}`;
-  const htmlContent = appendUnsubscribeFooter(renderTemplate(template.bodyHtml, vars), unsubscribeUrl);
+  const bodyWithSignature = renderTemplate(template.bodyHtml, vars) + renderTemplate(signatureBodyHtml, vars);
+  const htmlContent = appendUnsubscribeFooter(bodyWithSignature, unsubscribeUrl);
 
   const provider = createEmailProvider(c.env);
   const result = await provider.send({

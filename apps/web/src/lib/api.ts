@@ -83,6 +83,9 @@ export const api = {
   updateEmailTemplate: (id: string, patch: { name?: string; subject?: string; bodyHtml?: string }) =>
     request<{ template: EmailTemplate }>(`/email-templates/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteEmailTemplate: (id: string) => request<{ ok: true }>(`/email-templates/${id}`, { method: "DELETE" }),
+  signature: () => request<{ bodyHtml: string; updatedAt: string | null }>("/signature"),
+  updateSignature: (bodyHtml: string) =>
+    request<{ bodyHtml: string }>("/signature", { method: "PUT", body: JSON.stringify({ bodyHtml }) }),
   campaigns: () => request<{ data: Campaign[] }>("/campaigns"),
   campaign: (id: string) => request<{ campaign: Campaign; steps: CampaignStep[] }>(`/campaigns/${id}`),
   addCampaign: (payload: { name: string; offerId?: string; segmentFilter?: SegmentFilter; dailySendLimit?: number }) =>

@@ -14,6 +14,9 @@ export type TemplateVariables = {
   lien?: string;
 };
 
+/** Clé de la table `settings` (packages/db) où vit la signature email globale — voir apps/api/src/routes/signature.ts (lecture/écriture) et campaigns.ts (ajout automatique à chaque envoi). Centralisée ici pour éviter que les deux fichiers ne divergent sur la clé. */
+export const SIGNATURE_SETTINGS_KEY = "email_signature";
+
 const VARIABLE_RE = /\{\{\s*(\w+)\s*\}\}/g;
 
 /** Remplace les variables connues ; une valeur manquante est rendue comme chaîne vide (jamais un texte "undefined"). */

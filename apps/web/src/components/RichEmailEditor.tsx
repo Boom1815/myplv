@@ -61,7 +61,7 @@ type ButtonBlock = { id: string; kind: "button"; label: string; href: string; al
 type DividerBlock = { id: string; kind: "divider" };
 type SpacerBlock = { id: string; kind: "spacer"; height: number };
 type SocialBlock = { id: string; kind: "social"; align: Align; links: Record<string, string> };
-type Block = TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | SocialBlock;
+export type Block = TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | SocialBlock;
 
 /** Réseaux proposés dans le bloc "Réseaux sociaux" — un champ URL par réseau, vide = pas affiché à l'envoi. */
 const SOCIAL_NETWORKS: { key: string; name: string; label: string; bg: string; placeholder: string }[] = [
@@ -122,6 +122,93 @@ export function starterBlocks(): Block[] {
 
 export function starterHtml(): string {
   return blocksToHtml(starterBlocks());
+}
+
+/**
+ * Mises en page proposées pour la signature email globale (écran Signature)
+ * — un point de départ à personnaliser, pas un carcan : une fois appliquée,
+ * la mise en page se modifie comme n'importe quel template (glisser-déposer,
+ * ajout/suppression de blocs…). Les coordonnées sont volontairement des
+ * placeholders génériques (pas de vraies données MYPLV en dur).
+ */
+export type SignatureLayout = { id: string; name: string; description: string; icon: string; makeBlocks: () => Block[] };
+
+export function signatureLayouts(): SignatureLayout[] {
+  return [
+    {
+      id: "minimal",
+      name: "Minimaliste",
+      description: "Nom, fonction et coordonnées — texte seul, sans image.",
+      icon: "Aa",
+      makeBlocks: () => [
+        defaultTextBlock(
+          "<p><strong>Prénom Nom</strong><br>Fonction — MYPLV</p><p>+32 000 00 00 00 · prenom.nom@myplv.be · myplv.be</p>",
+          "left",
+          "footer",
+        ),
+      ],
+    },
+    {
+      id: "logo",
+      name: "Avec logo",
+      description: "Logo centré, séparateur, puis coordonnées.",
+      icon: "🖼",
+      makeBlocks: () => [
+        defaultImageBlock("https://app.myplv.be/logo-myplv.png", 140, "center"),
+        defaultDividerBlock(),
+        defaultTextBlock(
+          "<p style=\"text-align:center;\"><strong>Prénom Nom</strong><br>Fonction — MYPLV</p><p style=\"text-align:center;\">+32 000 00 00 00 · prenom.nom@myplv.be</p>",
+          "center",
+          "footer",
+        ),
+      ],
+    },
+    {
+      id: "social",
+      name: "Réseaux sociaux",
+      description: "Coordonnées à gauche, icônes réseaux sociaux en dessous.",
+      icon: "🔗",
+      makeBlocks: () => [
+        defaultTextBlock(
+          "<p><strong>Prénom Nom</strong><br>Fonction — MYPLV</p><p>+32 000 00 00 00 · prenom.nom@myplv.be</p>",
+          "left",
+          "footer",
+        ),
+        defaultSocialBlock(),
+      ],
+    },
+    {
+      id: "cta",
+      name: "Bandeau avec bouton",
+      description: "Coordonnées + un bouton (rendez-vous, offres…) — un menu simple.",
+      icon: "🔘",
+      makeBlocks: () => [
+        defaultTextBlock(
+          "<p><strong>Prénom Nom</strong><br>Fonction — MYPLV</p><p>+32 000 00 00 00 · prenom.nom@myplv.be</p>",
+          "left",
+          "footer",
+        ),
+        { id: newId(), kind: "button", label: "Prendre rendez-vous", href: "https://myplv.be", align: "left", bg: "#14151a", color: "#ffffff" },
+      ],
+    },
+    {
+      id: "complete",
+      name: "Complète",
+      description: "Logo, coordonnées, bouton et réseaux sociaux — la plus riche.",
+      icon: "✨",
+      makeBlocks: () => [
+        defaultImageBlock("https://app.myplv.be/logo-myplv.png", 140, "left"),
+        defaultTextBlock(
+          "<p><strong>Prénom Nom</strong><br>Fonction — MYPLV</p><p>+32 000 00 00 00 · prenom.nom@myplv.be · myplv.be</p>",
+          "left",
+          "footer",
+        ),
+        { id: newId(), kind: "button", label: "Découvrir nos offres", href: "https://myplv.be", align: "left", bg: "#14151a", color: "#ffffff" },
+        defaultDividerBlock(),
+        defaultSocialBlock(),
+      ],
+    },
+  ];
 }
 
 function alignStyle(align: Align): string {

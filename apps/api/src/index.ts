@@ -13,6 +13,7 @@ import { geoZonesRoutes } from "./routes/geographic-zones";
 import { tagsRoutes } from "./routes/tags";
 import { offersRoutes } from "./routes/offers";
 import { emailTemplatesRoutes } from "./routes/email-templates";
+import { signatureRoutes } from "./routes/signature";
 import { campaignsRoutes } from "./routes/campaigns";
 import { unsubscribeRoutes } from "./routes/unsubscribe";
 
@@ -38,6 +39,7 @@ app.route("/api/geographic-zones", geoZonesRoutes);
 app.route("/api/tags", tagsRoutes);
 app.route("/api/offers", offersRoutes);
 app.route("/api/email-templates", emailTemplatesRoutes);
+app.route("/api/signature", signatureRoutes);
 app.route("/api/campaigns", campaignsRoutes);
 app.route("/api/unsubscribe", unsubscribeRoutes);
 
