@@ -11,6 +11,7 @@ import { Offers } from "./pages/Offers";
 import { EmailTemplates } from "./pages/EmailTemplates";
 import { Signature } from "./pages/Signature";
 import { Campaigns } from "./pages/Campaigns";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 type View = "dashboard" | "prospects" | "scoring" | "blacklist" | "sectors" | "zones" | "offers" | "templates" | "signature" | "campaigns";
 
@@ -92,16 +93,20 @@ export default function App() {
           </button>
         </div>
       </header>
-      {view === "dashboard" && <Dashboard />}
-      {view === "prospects" && <Prospects isAdmin={user.role === "admin"} />}
-      {view === "scoring" && <Scoring isAdmin={user.role === "admin"} />}
-      {view === "blacklist" && <Blacklist isAdmin={user.role === "admin"} />}
-      {view === "sectors" && <Sectors isAdmin={user.role === "admin"} />}
-      {view === "zones" && <GeographicZones isAdmin={user.role === "admin"} />}
-      {view === "offers" && <Offers isAdmin={user.role === "admin"} />}
-      {view === "templates" && <EmailTemplates isAdmin={user.role === "admin"} />}
-      {view === "signature" && <Signature isAdmin={user.role === "admin"} />}
-      {view === "campaigns" && <Campaigns isAdmin={user.role === "admin"} />}
+      {/* key={view} : remonte le filet de sécurité à chaque changement d'onglet — une page
+          qui a planté ne reste pas bloquée en écran d'erreur quand on va voir ailleurs. */}
+      <ErrorBoundary key={view}>
+        {view === "dashboard" && <Dashboard />}
+        {view === "prospects" && <Prospects isAdmin={user.role === "admin"} />}
+        {view === "scoring" && <Scoring isAdmin={user.role === "admin"} />}
+        {view === "blacklist" && <Blacklist isAdmin={user.role === "admin"} />}
+        {view === "sectors" && <Sectors isAdmin={user.role === "admin"} />}
+        {view === "zones" && <GeographicZones isAdmin={user.role === "admin"} />}
+        {view === "offers" && <Offers isAdmin={user.role === "admin"} />}
+        {view === "templates" && <EmailTemplates isAdmin={user.role === "admin"} />}
+        {view === "signature" && <Signature isAdmin={user.role === "admin"} />}
+        {view === "campaigns" && <Campaigns isAdmin={user.role === "admin"} />}
+      </ErrorBoundary>
     </div>
   );
 }

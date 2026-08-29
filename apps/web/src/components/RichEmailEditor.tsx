@@ -107,8 +107,39 @@ function newId(): string {
   return `b${Date.now().toString(36)}${blockIdCounter}`;
 }
 
+/**
+ * Comble les champs manquants d'un bloc venu de localStorage ("Mes blocs
+ * enregistrés" / "Mes mises en page") — contrairement au contenu stocké
+ * côté serveur (templates, signature), qui repasse par columnsFromConfig
+ * (avec ses valeurs par défaut) à chaque chargement, un snippet/mise en
+ * page enregistré AVANT l'ajout d'un champ (ex. lineHeight/scale) reste tel
+ * quel en localStorage — le réinsérer produisait un bloc "columns"
+ * incomplet, et `undefined.toFixed(1)` plantait tout le rendu (page
+ * blanche, sans message). Défensif : ne fait rien sur un bloc déjà complet.
+ */
+function normalizeBlock(b: Block): Block {
+  if (b.kind !== "columns") return b;
+  return {
+    ...b,
+    leftWidth: b.leftWidth ?? 33,
+    divider: b.divider ?? true,
+    width: b.width ?? 100,
+    align: b.align ?? "left",
+    lineHeight: b.lineHeight ?? 1.4,
+    scale: b.scale ?? 100,
+    left: b.left.map(normalizeBlock),
+    right: b.right.map(normalizeBlock),
+  };
+}
+
 function cloneWithNewId(b: Block): Block {
-  return { ...b, id: newId() };
+  const n = normalizeBlock(b);
+  // Les enfants d'une colonne ont aussi besoin d'un id neuf : sinon,
+  // insérer deux fois le même snippet/mise en page donne des enfants avec
+  // des id identiques (collision dans les Map indexées par id — textRefs,
+  // imgRefs, blockElRefs — qui mélange leur édition).
+  if (n.kind === "columns") return { ...n, id: newId(), left: n.left.map(cloneWithNewId), right: n.right.map(cloneWithNewId) };
+  return { ...n, id: newId() };
 }
 
 function defaultTextBlock(html = "<p>Votre texte ici…</p>", align: Align = "left", role?: "footer"): TextBlock {
@@ -1839,10 +1870,13 @@ export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value:
                         min={1}
                         max={2}
                         step={0.1}
-                        value={b.lineHeight}
+                        value={b.lineHeight ?? 1.4}
                         onChange={(e) => updateBlock(b.id, { lineHeight: Number(e.target.value) } as Partial<ColumnsBlock>)}
                       />
-                      <span className="mono" style={{ minWidth: 24, color: "var(--ink-faint)" }}>{b.lineHeight.toFixed(1)}</span>
+                      {/* Filet de sécurité : (b.lineHeight ?? 1.4), pas b.lineHeight seul — un bloc
+                          inséré depuis un snippet/mise en page enregistré avant l'ajout de ce champ
+                          n'en a pas ; ?.toFixed() planterait tout le rendu (page blanche). */}
+                      <span className="mono" style={{ minWidth: 24, color: "var(--ink-faint)" }}>{(b.lineHeight ?? 1.4).toFixed(1)}</span>
                     </label>
                     <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       Taille globale
@@ -1850,10 +1884,10 @@ export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value:
                         type="range"
                         min={60}
                         max={150}
-                        value={b.scale}
+                        value={b.scale ?? 100}
                         onChange={(e) => updateBlock(b.id, { scale: Number(e.target.value) } as Partial<ColumnsBlock>)}
                       />
-                      <span className="mono" style={{ minWidth: 32, color: "var(--ink-faint)" }}>{b.scale}%</span>
+                      <span className="mono" style={{ minWidth: 32, color: "var(--ink-faint)" }}>{b.scale ?? 100}%</span>
                     </label>
                   </div>
                   <div className="columns-block-editor">
