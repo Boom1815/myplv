@@ -147,6 +147,20 @@ export function starterHtml(): string {
 }
 
 /**
+ * Ajoute la signature email globale sous un aperçu déjà rendu (variables
+ * résolues), avec une note explicite — jamais dans le HTML édité/stocké :
+ * la signature est ajoutée automatiquement à l'envoi (voir campaigns.ts),
+ * elle ne fait jamais partie du bodyHtml du template lui-même. Partagée
+ * par l'aperçu en direct de l'éditeur (RichEmailEditor) et l'aperçu d'un
+ * template déjà enregistré (écran Templates), pour que les deux
+ * correspondent exactement à ce qui sera réellement envoyé.
+ */
+export function withSignaturePreview(renderedBodyHtml: string, signatureBodyHtml?: string): string {
+  if (!signatureBodyHtml?.trim()) return renderedBodyHtml;
+  return `${renderedBodyHtml}<div class="rich-editor-preview-signature-note">✎ Signature ajoutée automatiquement à l'envoi — modifiable dans l'écran <strong>Signature</strong>, pas ici.</div>${renderTemplate(signatureBodyHtml, SAMPLE_VARIABLES)}`;
+}
+
+/**
  * Mises en page proposées pour la signature email globale (écran Signature)
  * — un point de départ à personnaliser, pas un carcan : une fois appliquée,
  * la mise en page se modifie comme n'importe quel template (glisser-déposer,
@@ -811,7 +825,15 @@ function BlockChrome({
   );
 }
 
-export function RichEmailEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+/**
+ * `appendPreviewHtml` : HTML ajouté sous l'aperçu en direct, sans jamais
+ * faire partie du contenu édité (ni sérialisé dans "value") — sert à
+ * afficher la signature email globale sous un template (écran Templates),
+ * pour que l'aperçu corresponde à l'email réellement envoyé (voir
+ * campaigns.ts : la signature est ajoutée automatiquement à l'envoi, elle
+ * ne fait jamais partie du bodyHtml du template lui-même).
+ */
+export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value: string; onChange: (html: string) => void; appendPreviewHtml?: string }) {
   const [rawMode, setRawMode] = useState(false);
   const [rawText, setRawText] = useState(value);
   const [blocks, setBlocks] = useState<Block[]>(() => htmlToBlocks(value));
@@ -882,8 +904,11 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
   // Aperçu en direct : le HTML courant (blocs ou source brute selon le
   // mode), avec les variables {{prenom}}… remplacées par des exemples —
   // mêmes données que l'aperçu serveur (écran Templates) et l'envoi de
-  // test, pour ne jamais surprendre entre les deux.
-  const previewHtml = renderTemplate(rawMode ? rawText : blocksToHtml(blocks), SAMPLE_VARIABLES);
+  // test, pour ne jamais surprendre entre les deux. La signature
+  // (appendPreviewHtml), quand fournie, est ajoutée SOUS l'aperçu avec une
+  // note explicite — jamais dans le HTML édité : elle est ajoutée à
+  // l'envoi, pas stockée dans le template.
+  const previewHtml = withSignaturePreview(renderTemplate(rawMode ? rawText : blocksToHtml(blocks), SAMPLE_VARIABLES), appendPreviewHtml);
 
   if (value !== lastEmittedRef.current && value !== rawText) {
     // Changement externe (sélection d'un autre template, ou un parent qui

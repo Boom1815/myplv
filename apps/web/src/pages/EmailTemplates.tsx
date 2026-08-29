@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type EmailTemplate } from "../lib/api";
 import { InfoTooltip } from "../components/InfoTooltip";
-import { RichEmailEditor, starterHtml } from "../components/RichEmailEditor";
+import { RichEmailEditor, starterHtml, withSignaturePreview } from "../components/RichEmailEditor";
 
 function emptyForm() {
   return { name: "", subject: "", bodyHtml: starterHtml() };
@@ -17,6 +17,11 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ subject: string; bodyHtml: string } | null>(null);
   const [unknownVars, setUnknownVars] = useState<string[]>([]);
+  // Signature globale (écran Signature) — récupérée ici pour que l'aperçu,
+  // en édition comme sur un template déjà enregistré, montre exactement ce
+  // qui sera réellement envoyé (voir campaigns.ts : ajoutée automatiquement
+  // à l'envoi, jamais stockée dans le template lui-même).
+  const [signatureBodyHtml, setSignatureBodyHtml] = useState("");
 
   function load() {
     api
@@ -29,6 +34,12 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
   }
 
   useEffect(load, []);
+  useEffect(() => {
+    api
+      .signature()
+      .then((res) => setSignatureBodyHtml(res.bodyHtml))
+      .catch(() => setSignatureBodyHtml(""));
+  }, []);
 
   useEffect(() => {
     if (!selectedId) {
@@ -135,11 +146,12 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
             <label>
               Corps
               <InfoTooltip>
-                <p>L'email se compose par blocs (texte, image, bouton, séparateur) — chacun dans son propre encadré. Saisis la poignée ⠿ pour le glisser-déposer à un autre endroit, ou la croix pour le supprimer. Ajoute-en un nouveau depuis la barre en bas de l'éditeur.</p>
+                <p>L'email se compose par blocs (texte, image, bouton, séparateur) — chacun dans son propre encadré. Saisis la poignée ⠿ (ou la barre du bloc) pour le glisser-déposer à un autre endroit, ou la croix pour le supprimer. Ajoute-en un nouveau depuis la barre en bas de l'éditeur — en cliquant, ou en le glissant directement à l'endroit voulu.</p>
                 <p>Dans un bloc de texte, sélectionne des mots puis choisis gras/italique/souligné, une police, un corps (taille) ou une couleur (pipette) — comme dans un traitement de texte.</p>
+                <p>Ta signature (écran Signature) s'ajoute automatiquement sous ce contenu à l'envoi — inutile de la recomposer ici ; l'aperçu ci-dessous la montre pour référence.</p>
               </InfoTooltip>
             </label>
-            <RichEmailEditor value={form.bodyHtml} onChange={(html) => setForm({ ...form, bodyHtml: html })} />
+            <RichEmailEditor value={form.bodyHtml} onChange={(html) => setForm({ ...form, bodyHtml: html })} appendPreviewHtml={signatureBodyHtml} />
           </div>
           <button className="btn btn-primary" type="submit" style={{ marginTop: 6 }}>
             {editingId ? "Enregistrer les modifications" : "Créer le template"}
@@ -218,7 +230,7 @@ export function EmailTemplates({ isAdmin }: { isAdmin: boolean }) {
               <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 4 }}>Aperçu</div>
               <div
                 style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 16, background: "var(--paper)" }}
-                dangerouslySetInnerHTML={{ __html: preview.bodyHtml }}
+                dangerouslySetInnerHTML={{ __html: withSignaturePreview(preview.bodyHtml, signatureBodyHtml) }}
               />
             </>
           ) : (
