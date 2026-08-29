@@ -1739,55 +1739,58 @@ export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value:
             }
             if (b.kind === "columns") {
               return (
-                <BlockChrome
-                  key={b.id}
-                  {...common}
-                  extra={
-                    <>
-                      <span className="block-align-picker">
-                        <select
-                          className="columns-width-select"
-                          title="Largeur de la colonne de gauche"
-                          value={b.leftWidth}
-                          onChange={(e) => updateBlock(b.id, { leftWidth: Number(e.target.value) } as Partial<ColumnsBlock>)}
-                        >
-                          <option value={25}>25 / 75</option>
-                          <option value={33}>33 / 66</option>
-                          <option value={50}>50 / 50</option>
-                          <option value={66}>66 / 33</option>
-                        </select>
-                        <button
-                          type="button"
-                          className={`icon-btn ${b.divider ? "active" : ""}`}
-                          title="Séparateur vertical entre les colonnes"
-                          onClick={() => updateBlock(b.id, { divider: !b.divider } as Partial<ColumnsBlock>)}
-                        >
-                          │
-                        </button>
+                <BlockChrome key={b.id} {...common}>
+                  {/* Réglages dans la barre de contrôles (comme Image/Bouton),
+                      PAS dans l'en-tête du bloc : l'en-tête est une simple
+                      ligne flex sans retour à la ligne — trop de contrôles
+                      dedans (largeur colonnes + largeur totale + alignement)
+                      débordait et devenait invisible/inutilisable sur un
+                      éditeur pas assez large. Molettes (curseurs) plutôt que
+                      des listes à choix fixes, pour un réglage continu. */}
+                  <div className="email-block-controls">
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      Colonnes
+                      <input
+                        type="range"
+                        min={15}
+                        max={85}
+                        value={b.leftWidth}
+                        onChange={(e) => updateBlock(b.id, { leftWidth: Number(e.target.value) } as Partial<ColumnsBlock>)}
+                      />
+                      <span className="mono" style={{ minWidth: 64, color: "var(--ink-faint)" }}>
+                        {b.leftWidth}% / {100 - b.leftWidth}%
                       </span>
-                      {/* Largeur + alignement du bloc entier (les deux colonnes
-                          ensemble) dans la page — pas des coordonnées à
-                          l'intérieur d'une colonne : c'est ce qui permet de
-                          poser toute la signature à gauche, à droite ou
-                          centrée, avec de l'espace blanc autour. */}
-                      <span className="block-align-picker">
-                        <select
-                          className="columns-width-select"
-                          title="Largeur de la signature dans la page"
-                          value={b.width}
-                          onChange={(e) => updateBlock(b.id, { width: Number(e.target.value) } as Partial<ColumnsBlock>)}
-                        >
-                          <option value={100}>100%</option>
-                          <option value={85}>85%</option>
-                          <option value={70}>70%</option>
-                          <option value={55}>55%</option>
-                          <option value={40}>40%</option>
-                        </select>
-                      </span>
-                      <AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align } as Partial<ColumnsBlock>)} />
-                    </>
-                  }
-                >
+                    </label>
+                    <span className="block-align-picker">
+                      <button
+                        type="button"
+                        className={`icon-btn ${b.divider ? "active" : ""}`}
+                        title="Séparateur vertical entre les colonnes"
+                        onClick={() => updateBlock(b.id, { divider: !b.divider } as Partial<ColumnsBlock>)}
+                      >
+                        │
+                      </button>
+                    </span>
+                  </div>
+                  {/* Largeur + alignement du bloc entier (les deux colonnes
+                      ensemble) dans la page — pas des coordonnées à
+                      l'intérieur d'une colonne : c'est ce qui permet de poser
+                      toute la signature à gauche, à droite ou centrée, avec
+                      de l'espace blanc autour. */}
+                  <div className="email-block-controls">
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      Largeur totale
+                      <input
+                        type="range"
+                        min={20}
+                        max={100}
+                        value={b.width}
+                        onChange={(e) => updateBlock(b.id, { width: Number(e.target.value) } as Partial<ColumnsBlock>)}
+                      />
+                      <span className="mono" style={{ minWidth: 32, color: "var(--ink-faint)" }}>{b.width}%</span>
+                    </label>
+                    <AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align } as Partial<ColumnsBlock>)} />
+                  </div>
                   <div className="columns-block-editor">
                     {(["left", "right"] as const).map((side) => (
                       <div className="column-side" key={side}>

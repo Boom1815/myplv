@@ -1246,7 +1246,12 @@ a {
   flex: 1;
 }
 
-.email-block-head .icon-btn {
+/* Bouton icône générique — délibérément NON scopé à .email-block-head :
+   utilisé aussi dans les barres de réglages (.email-block-controls) et
+   dans les colonnes imbriquées. Un bouton perdait tout son style (donc
+   semblait "ne rien proposer") dès qu'on le sortait de l'en-tête tant que
+   cette règle était scopée à .email-block-head. */
+.icon-btn {
   border: none;
   background: transparent;
   color: var(--ink-faint);
@@ -1259,12 +1264,12 @@ a {
   justify-content: center;
 }
 
-.email-block-head .icon-btn:hover {
+.icon-btn:hover {
   color: var(--ink);
   background: var(--line-soft);
 }
 
-.email-block-head .icon-btn.danger:hover {
+.icon-btn.danger:hover {
   color: var(--risk);
 }
 
@@ -1326,18 +1331,9 @@ a {
 
 /* --- Éditeur email : bloc "Colonnes" (côte-à-côte, ex. signature logo + coordonnées) --- */
 
-.columns-width-select {
-  padding: 3px 4px;
-  border-radius: var(--radius);
-  border: none;
-  background: transparent;
-  color: var(--ink-faint);
-  font-size: 11.5px;
-}
-
-.columns-width-select:hover {
-  color: var(--ink);
-  background: var(--line-soft);
+.email-block-controls input[type="range"] {
+  accent-color: var(--accent);
+  width: 110px;
 }
 
 .columns-block-editor {
