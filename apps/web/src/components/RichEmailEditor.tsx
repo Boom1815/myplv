@@ -66,8 +66,19 @@ type SocialBlock = { id: string; kind: "social"; align: Align; links: Record<str
 // côté est une pile de blocs indépendante — mêmes types qu'au niveau
 // racine, à l'exception de "columns" lui-même (pas de colonnes imbriquées,
 // pour rester lisible). leftWidth est un pourcentage (10-90) de la largeur
-// totale ; le reste revient à droite.
-type ColumnsBlock = { id: string; kind: "columns"; left: Block[]; right: Block[]; leftWidth: number; divider: boolean };
+// totale du bloc ; le reste revient à droite. width/align positionnent le
+// bloc entier (les deux colonnes ensemble) dans la colonne email — ex.
+// une signature à 70% alignée à gauche, avec de l'espace blanc à droite.
+type ColumnsBlock = {
+  id: string;
+  kind: "columns";
+  left: Block[];
+  right: Block[];
+  leftWidth: number;
+  divider: boolean;
+  width: number;
+  align: Align;
+};
 export type Block = TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | SocialBlock | ColumnsBlock;
 
 /** Réseaux proposés dans le bloc "Réseaux sociaux" — un champ URL par réseau, vide = pas affiché à l'envoi. */
@@ -121,6 +132,8 @@ function defaultColumnsBlock(): ColumnsBlock {
     kind: "columns",
     leftWidth: 33,
     divider: true,
+    width: 100,
+    align: "left",
     left: [defaultImageBlock("https://app.myplv.be/logo-myplv.png", 100, "center")],
     right: [
       defaultTextBlock(
@@ -255,6 +268,8 @@ export function signatureLayouts(): SignatureLayout[] {
           kind: "columns",
           leftWidth: 33,
           divider: true,
+          width: 100,
+          align: "left",
           left: [defaultImageBlock("https://app.myplv.be/logo-myplv.png", 100, "center")],
           right: [
             defaultTextBlock(
@@ -319,10 +334,16 @@ function blockBodyHtml(b: Block): string {
       const rightHtml = b.right.map(blockBodyHtml).join("");
       const rightWidth = 100 - b.leftWidth;
       const dividerStyle = b.divider ? "border-left:1px solid #D8DCD3;" : "";
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr>
+      const inner = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr>
 <td width="${b.leftWidth}%" valign="middle" style="padding:0 16px 0 0;">${leftHtml}</td>
 <td width="${rightWidth}%" valign="middle" style="padding:0 0 0 16px;${dividerStyle}">${rightHtml}</td>
 </tr></table>`;
+      // width < 100 : le bloc entier (les deux colonnes ensemble) devient
+      // plus étroit que la colonne email, avec de l'espace blanc réparti
+      // selon align — même motif "table 100% -> td align -> table width=X%"
+      // que pour une image, mais appliqué aux deux colonnes ensemble.
+      if (b.width >= 100) return inner;
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}"><table role="presentation" width="${b.width}%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td>${inner}</td></tr></table></td></tr></table>`;
     }
   }
 }
@@ -359,6 +380,8 @@ function blockConfig(b: Block): Record<string, unknown> {
       return {
         leftWidth: b.leftWidth,
         divider: b.divider,
+        width: b.width,
+        align: b.align,
         left: b.left.map(childToPlainConfig),
         right: b.right.map(childToPlainConfig),
       };
@@ -459,6 +482,8 @@ function columnsFromConfig(cfg: Record<string, unknown>): ColumnsBlock {
     kind: "columns",
     leftWidth: typeof cfg.leftWidth === "number" ? cfg.leftWidth : 33,
     divider: cfg.divider !== false,
+    width: typeof cfg.width === "number" ? cfg.width : 100,
+    align: (cfg.align as Align) || "left",
     left: parseSide(cfg.left),
     right: parseSide(cfg.right),
   };
@@ -1718,27 +1743,49 @@ export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value:
                   key={b.id}
                   {...common}
                   extra={
-                    <span className="block-align-picker">
-                      <select
-                        className="columns-width-select"
-                        title="Largeur de la colonne de gauche"
-                        value={b.leftWidth}
-                        onChange={(e) => updateBlock(b.id, { leftWidth: Number(e.target.value) } as Partial<ColumnsBlock>)}
-                      >
-                        <option value={25}>25 / 75</option>
-                        <option value={33}>33 / 66</option>
-                        <option value={50}>50 / 50</option>
-                        <option value={66}>66 / 33</option>
-                      </select>
-                      <button
-                        type="button"
-                        className={`icon-btn ${b.divider ? "active" : ""}`}
-                        title="Séparateur vertical entre les colonnes"
-                        onClick={() => updateBlock(b.id, { divider: !b.divider } as Partial<ColumnsBlock>)}
-                      >
-                        │
-                      </button>
-                    </span>
+                    <>
+                      <span className="block-align-picker">
+                        <select
+                          className="columns-width-select"
+                          title="Largeur de la colonne de gauche"
+                          value={b.leftWidth}
+                          onChange={(e) => updateBlock(b.id, { leftWidth: Number(e.target.value) } as Partial<ColumnsBlock>)}
+                        >
+                          <option value={25}>25 / 75</option>
+                          <option value={33}>33 / 66</option>
+                          <option value={50}>50 / 50</option>
+                          <option value={66}>66 / 33</option>
+                        </select>
+                        <button
+                          type="button"
+                          className={`icon-btn ${b.divider ? "active" : ""}`}
+                          title="Séparateur vertical entre les colonnes"
+                          onClick={() => updateBlock(b.id, { divider: !b.divider } as Partial<ColumnsBlock>)}
+                        >
+                          │
+                        </button>
+                      </span>
+                      {/* Largeur + alignement du bloc entier (les deux colonnes
+                          ensemble) dans la page — pas des coordonnées à
+                          l'intérieur d'une colonne : c'est ce qui permet de
+                          poser toute la signature à gauche, à droite ou
+                          centrée, avec de l'espace blanc autour. */}
+                      <span className="block-align-picker">
+                        <select
+                          className="columns-width-select"
+                          title="Largeur de la signature dans la page"
+                          value={b.width}
+                          onChange={(e) => updateBlock(b.id, { width: Number(e.target.value) } as Partial<ColumnsBlock>)}
+                        >
+                          <option value={100}>100%</option>
+                          <option value={85}>85%</option>
+                          <option value={70}>70%</option>
+                          <option value={55}>55%</option>
+                          <option value={40}>40%</option>
+                        </select>
+                      </span>
+                      <AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align } as Partial<ColumnsBlock>)} />
+                    </>
                   }
                 >
                   <div className="columns-block-editor">
