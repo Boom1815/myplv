@@ -61,7 +61,14 @@ type ButtonBlock = { id: string; kind: "button"; label: string; href: string; al
 type DividerBlock = { id: string; kind: "divider" };
 type SpacerBlock = { id: string; kind: "spacer"; height: number };
 type SocialBlock = { id: string; kind: "social"; align: Align; links: Record<string, string> };
-export type Block = TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | SocialBlock;
+// Colonne côte à côte (ex. logo à gauche, coordonnées à droite, séparateur
+// vertical entre les deux — mise en page de signature classique). Chaque
+// côté est une pile de blocs indépendante — mêmes types qu'au niveau
+// racine, à l'exception de "columns" lui-même (pas de colonnes imbriquées,
+// pour rester lisible). leftWidth est un pourcentage (10-90) de la largeur
+// totale ; le reste revient à droite.
+type ColumnsBlock = { id: string; kind: "columns"; left: Block[]; right: Block[]; leftWidth: number; divider: boolean };
+export type Block = TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | SocialBlock | ColumnsBlock;
 
 /** Réseaux proposés dans le bloc "Réseaux sociaux" — un champ URL par réseau, vide = pas affiché à l'envoi. */
 const SOCIAL_NETWORKS: { key: string; name: string; label: string; bg: string; placeholder: string }[] = [
@@ -107,6 +114,21 @@ function defaultSocialBlock(): SocialBlock {
   const links: Record<string, string> = {};
   for (const n of SOCIAL_NETWORKS) links[n.key] = "";
   return { id: newId(), kind: "social", align: "center", links };
+}
+function defaultColumnsBlock(): ColumnsBlock {
+  return {
+    id: newId(),
+    kind: "columns",
+    leftWidth: 33,
+    divider: true,
+    left: [defaultImageBlock("https://app.myplv.be/logo-myplv.png", 100, "center")],
+    right: [
+      defaultTextBlock(
+        '<p style="font-weight:700;font-size:15px;">Prénom Nom</p><p style="font-size:12px;color:#7b8494;">Fonction — Entreprise</p>',
+        "left",
+      ),
+    ],
+  };
 }
 
 /** Contenu de départ pour un nouveau template : logo MYPLV, une zone de texte, une zone image, un pied de page. */
@@ -208,6 +230,27 @@ export function signatureLayouts(): SignatureLayout[] {
         defaultSocialBlock(),
       ],
     },
+    {
+      id: "two-columns",
+      name: "Deux colonnes",
+      description: "Logo à gauche, séparateur vertical, nom et coordonnées à droite — signature classique en colonnes.",
+      icon: "▥",
+      makeBlocks: () => [
+        {
+          id: newId(),
+          kind: "columns",
+          leftWidth: 33,
+          divider: true,
+          left: [defaultImageBlock("https://app.myplv.be/logo-myplv.png", 100, "center")],
+          right: [
+            defaultTextBlock(
+              '<p style="font-weight:700;font-size:15px;letter-spacing:0.02em;">Prénom Nom</p><p style="font-size:12px;color:#7b8494;letter-spacing:0.03em;text-transform:uppercase;">Fonction — Entreprise</p><p style="font-size:12.5px;">📞 +32 000 00 00 00</p><p style="font-size:12.5px;">🌐 www.myplv.be</p>',
+              "left",
+            ),
+          ],
+        },
+      ],
+    },
   ];
 }
 
@@ -253,7 +296,35 @@ function blockBodyHtml(b: Block): string {
       if (!icons) return "";
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}" style="text-align:${alignStyle(b.align)};">${icons}</td></tr></table>`;
     }
+    case "columns": {
+      // Motif email standard pour un côte-à-côte fiable (y compris Outlook,
+      // qui ignore flex/grid) : deux <td> d'une même table, largeurs en %.
+      // valign="middle" pour que logo (souvent plus bas que le texte) et
+      // coordonnées restent alignés verticalement l'un sur l'autre.
+      const leftHtml = b.left.map(blockBodyHtml).join("");
+      const rightHtml = b.right.map(blockBodyHtml).join("");
+      const rightWidth = 100 - b.leftWidth;
+      const dividerStyle = b.divider ? "border-left:1px solid #D8DCD3;" : "";
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr>
+<td width="${b.leftWidth}%" valign="middle" style="padding:0 16px 0 0;">${leftHtml}</td>
+<td width="${rightWidth}%" valign="middle" style="padding:0 0 0 16px;${dividerStyle}">${rightHtml}</td>
+</tr></table>`;
+    }
   }
+}
+
+/**
+ * Version JSON à plat d'un bloc (kind + sa config + son HTML pour un bloc
+ * texte) — utilisée pour les enfants d'un bloc "columns". Contrairement au
+ * niveau racine, ces enfants ne sont PAS sérialisés via des marqueurs
+ * `<!--myplv:block:…-->` imbriqués : BLOCK_RE (non récursif) s'arrêterait
+ * au premier marqueur de fermeture rencontré, celui d'un enfant, pas celui
+ * du bloc "columns" englobant. La config JSON du bloc "columns" embarque
+ * donc directement ce tableau de blocs enfants, reconstruit tel quel au
+ * chargement (voir columnsFromConfig / blockFromConfig).
+ */
+function childToPlainConfig(b: Block): Record<string, unknown> {
+  return { kind: b.kind, ...blockConfig(b), html: b.kind === "text" ? b.html : undefined };
 }
 
 function blockConfig(b: Block): Record<string, unknown> {
@@ -270,6 +341,13 @@ function blockConfig(b: Block): Record<string, unknown> {
       return { height: b.height };
     case "social":
       return { align: b.align, links: b.links };
+    case "columns":
+      return {
+        leftWidth: b.leftWidth,
+        divider: b.divider,
+        left: b.left.map(childToPlainConfig),
+        right: b.right.map(childToPlainConfig),
+      };
   }
 }
 
@@ -303,6 +381,75 @@ ${inner}
 
 const BLOCK_RE = /<!--myplv:block:(\w+):([\s\S]*?)-->(?:<!--myplv:html:([\s\S]*?)-->)?[\s\S]*?<!--\/myplv:block-->/g;
 
+/**
+ * Reconstruit un bloc (texte/image/bouton/séparateur/espaceur/réseaux
+ * sociaux — pas "columns", voir columnsFromConfig) à partir de son kind, sa
+ * config JSON et son HTML (pour un bloc texte). Partagé par htmlToBlocks
+ * (marqueurs HTML au niveau racine) et columnsFromConfig (enfants d'un
+ * bloc "columns", stockés en JSON à plat — voir childToPlainConfig) : même
+ * logique de reconstruction, deux sources de données différentes.
+ */
+function blockFromConfig(kind: string, cfg: Record<string, unknown>, textHtml: string): Block | null {
+  switch (kind) {
+    case "text":
+      return {
+        id: newId(),
+        kind: "text",
+        html: textHtml || "<p></p>",
+        align: (cfg.align as Align) || "left",
+        role: cfg.role === "footer" ? "footer" : undefined,
+      };
+    case "image":
+      return {
+        id: newId(),
+        kind: "image",
+        src: (cfg.src as string) || "",
+        width: (cfg.width as number) ?? null,
+        align: (cfg.align as Align) || "center",
+        href: (cfg.href as string) || "",
+      };
+    case "button":
+      return {
+        id: newId(),
+        kind: "button",
+        label: (cfg.label as string) || "En savoir plus",
+        href: (cfg.href as string) || "",
+        align: (cfg.align as Align) || "center",
+        bg: (cfg.bg as string) || "#14151a",
+        color: (cfg.color as string) || "#ffffff",
+      };
+    case "divider":
+      return { id: newId(), kind: "divider" };
+    case "spacer":
+      return { id: newId(), kind: "spacer", height: (cfg.height as number) || 24 };
+    case "social": {
+      const links: Record<string, string> = {};
+      const cfgLinks = (cfg.links as Record<string, string>) || {};
+      for (const n of SOCIAL_NETWORKS) links[n.key] = cfgLinks[n.key] || "";
+      return { id: newId(), kind: "social", align: (cfg.align as Align) || "center", links };
+    }
+    default:
+      return null; // "columns" (imbriqué — non supporté) ou kind inconnu
+  }
+}
+
+function columnsFromConfig(cfg: Record<string, unknown>): ColumnsBlock {
+  const parseSide = (arr: unknown): Block[] =>
+    Array.isArray(arr)
+      ? (arr as Record<string, unknown>[])
+          .map((p) => blockFromConfig(p.kind as string, p, (p.html as string) || ""))
+          .filter((b): b is Block => b !== null)
+      : [];
+  return {
+    id: newId(),
+    kind: "columns",
+    leftWidth: typeof cfg.leftWidth === "number" ? cfg.leftWidth : 33,
+    divider: cfg.divider !== false,
+    left: parseSide(cfg.left),
+    right: parseSide(cfg.right),
+  };
+}
+
 /** Reconstruit les blocs à partir du HTML stocké. Si aucun marqueur n'est trouvé (ancien template, ou HTML collé à la main), tout le contenu devient un unique bloc de texte — rien n'est perdu. */
 export function htmlToBlocks(html: string): Block[] {
   const trimmed = html.trim();
@@ -320,42 +467,11 @@ export function htmlToBlocks(html: string): Block[] {
       cfg = {};
     }
     const textHtml = m[3] ? decodeURIComponent(escape(atob(m[3]))) : "";
-    if (kind === "text") {
-      blocks.push({
-        id: newId(),
-        kind: "text",
-        html: textHtml || "<p></p>",
-        align: (cfg.align as Align) || "left",
-        role: cfg.role === "footer" ? "footer" : undefined,
-      });
-    } else if (kind === "image") {
-      blocks.push({
-        id: newId(),
-        kind: "image",
-        src: (cfg.src as string) || "",
-        width: (cfg.width as number) ?? null,
-        align: (cfg.align as Align) || "center",
-        href: (cfg.href as string) || "",
-      });
-    } else if (kind === "button") {
-      blocks.push({
-        id: newId(),
-        kind: "button",
-        label: (cfg.label as string) || "En savoir plus",
-        href: (cfg.href as string) || "",
-        align: (cfg.align as Align) || "center",
-        bg: (cfg.bg as string) || "#14151a",
-        color: (cfg.color as string) || "#ffffff",
-      });
-    } else if (kind === "divider") {
-      blocks.push({ id: newId(), kind: "divider" });
-    } else if (kind === "spacer") {
-      blocks.push({ id: newId(), kind: "spacer", height: (cfg.height as number) || 24 });
-    } else if (kind === "social") {
-      const links: Record<string, string> = {};
-      const cfgLinks = (cfg.links as Record<string, string>) || {};
-      for (const n of SOCIAL_NETWORKS) links[n.key] = cfgLinks[n.key] || "";
-      blocks.push({ id: newId(), kind: "social", align: (cfg.align as Align) || "center", links });
+    if (kind === "columns") {
+      blocks.push(columnsFromConfig(cfg));
+    } else {
+      const b = blockFromConfig(kind, cfg, textHtml);
+      if (b) blocks.push(b);
     }
   }
   return blocks.length > 0 ? blocks : [defaultTextBlock(trimmed)];
@@ -599,8 +715,17 @@ function labelFor(b: Block): string {
   if (b.kind === "button") return "Bouton";
   if (b.kind === "spacer") return "Espaceur";
   if (b.kind === "social") return "Réseaux sociaux";
+  if (b.kind === "columns") return "Colonnes";
   return "Séparateur";
 }
+
+/** Kinds autorisés dans une colonne — pas "columns" (pas de colonnes imbriquées, pour rester lisible) ni "divider"/"spacer" (peu utiles côte à côte, un séparateur vertical existe déjà entre les deux colonnes). */
+const COLUMN_CHILD_PALETTE: { kind: Exclude<Block["kind"], "columns" | "divider" | "spacer">; icon: string; label: string }[] = [
+  { kind: "text", icon: "📝", label: "Texte" },
+  { kind: "image", icon: "🖼", label: "Image" },
+  { kind: "button", icon: "🔘", label: "Bouton" },
+  { kind: "social", icon: "🌐", label: "Réseaux sociaux" },
+];
 
 /** Palette de blocs affichée dans la boîte à outils latérale. */
 const BLOCK_PALETTE: { kind: Block["kind"]; icon: string; label: string }[] = [
@@ -608,6 +733,7 @@ const BLOCK_PALETTE: { kind: Block["kind"]; icon: string; label: string }[] = [
   { kind: "image", icon: "🖼", label: "Image" },
   { kind: "button", icon: "🔘", label: "Bouton" },
   { kind: "social", icon: "🌐", label: "Réseaux sociaux" },
+  { kind: "columns", icon: "▥", label: "Colonnes" },
   { kind: "divider", icon: "➖", label: "Séparateur" },
   { kind: "spacer", icon: "↕", label: "Espaceur" },
 ];
@@ -775,8 +901,27 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     onChange(html);
   }
 
+  // updateBlock/deleteBlock descendent aussi dans les colonnes d'un bloc
+  // "columns" : un enfant de colonne a le même id unique qu'un bloc racine
+  // (newId()), donc tous les éditeurs par kind (texte/image/bouton…) déjà
+  // écrits pour les blocs racine fonctionnent tels quels pour les enfants
+  // de colonne — un seul id à connaître, peu importe sa profondeur.
+  function updateAnyBlock(list: Block[], id: string, patch: Partial<Block>): Block[] {
+    return list.map((b) => {
+      if (b.id === id) return { ...b, ...patch } as Block;
+      if (b.kind === "columns") return { ...b, left: updateAnyBlock(b.left, id, patch), right: updateAnyBlock(b.right, id, patch) };
+      return b;
+    });
+  }
+
+  function deleteAnyBlock(list: Block[], id: string): Block[] {
+    return list
+      .filter((b) => b.id !== id)
+      .map((b) => (b.kind === "columns" ? { ...b, left: deleteAnyBlock(b.left, id), right: deleteAnyBlock(b.right, id) } : b));
+  }
+
   function updateBlock(id: string, patch: Partial<Block>) {
-    commit(blocks.map((b) => (b.id === id ? ({ ...b, ...patch } as Block) : b)));
+    commit(updateAnyBlock(blocks, id, patch));
   }
 
   function deleteBlock(id: string) {
@@ -784,7 +929,7 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
     textRefs.current.delete(id);
     imgRefs.current.delete(id);
     blockElRefs.current.delete(id);
-    commit(blocks.filter((b) => b.id !== id));
+    commit(deleteAnyBlock(blocks, id));
   }
 
   function moveBlock(id: string, dir: -1 | 1) {
@@ -810,11 +955,173 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
         return defaultSocialBlock();
       case "divider":
         return defaultDividerBlock();
+      case "columns":
+        return defaultColumnsBlock();
     }
   }
 
   function addBlock(kind: Block["kind"]) {
     commit([...blocks, makeBlockForKind(kind)]);
+  }
+
+  /** Ajoute un bloc dans une colonne (gauche/droite) d'un bloc "columns" existant. */
+  function addColumnChild(parentId: string, side: "left" | "right", kind: Block["kind"]) {
+    if (kind === "columns") return; // pas de colonnes imbriquées
+    commit(
+      blocks.map((b) => (b.id === parentId && b.kind === "columns" ? { ...b, [side]: [...b[side], makeBlockForKind(kind)] } : b)),
+    );
+  }
+
+  /** Réordonne un enfant à l'intérieur d'une seule colonne (haut/bas — pas de glisser ici, une colonne de signature compte rarement plus de 2-3 éléments). */
+  function moveColumnChild(parentId: string, side: "left" | "right", id: string, dir: -1 | 1) {
+    commit(
+      blocks.map((b) => {
+        if (b.id !== parentId || b.kind !== "columns") return b;
+        const list = [...b[side]];
+        const idx = list.findIndex((c) => c.id === id);
+        const swapWith = idx + dir;
+        if (idx < 0 || swapWith < 0 || swapWith >= list.length) return b;
+        [list[idx], list[swapWith]] = [list[swapWith], list[idx]];
+        return { ...b, [side]: list };
+      }),
+    );
+  }
+
+  /**
+   * Édition compacte d'un bloc enfant à l'intérieur d'une colonne — même
+   * champs que l'éditeur de bloc racine (texte riche, image, bouton,
+   * réseaux sociaux) mais sans BlockChrome (pas de glisser-déposer à ce
+   * niveau, une colonne de signature compte rarement plus de 2-3 éléments —
+   * ↑ ↓ suffisent). textRefs/imgRefs/getInitialHtml/handleTextInput/
+   * updateBlock sont partagés avec les blocs racine : ils sont indexés par
+   * id de bloc, pas par position, donc fonctionnent à l'identique ici.
+   */
+  function renderColumnChild(parent: ColumnsBlock, side: "left" | "right", child: Block) {
+    const sideList = parent[side];
+    const idx = sideList.findIndex((c) => c.id === child.id);
+    const isFirst = idx === 0;
+    const isLast = idx === sideList.length - 1;
+
+    let body: React.ReactNode = null;
+    if (child.kind === "text") {
+      body = (
+        <div
+          ref={(el) => {
+            if (el) textRefs.current.set(child.id, el);
+            else textRefs.current.delete(child.id);
+          }}
+          className="rich-editor-surface email-block-text"
+          style={{ textAlign: child.align, fontSize: 13 }}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={() => handleTextInput(child.id)}
+          onBlur={() => handleTextInput(child.id)}
+          dangerouslySetInnerHTML={{ __html: getInitialHtml(child.id, child.html) }}
+        />
+      );
+    } else if (child.kind === "image") {
+      body =
+        imagePanelFor === child.id ? (
+          <ImagePicker
+            label="Remplacer par :"
+            onCancel={() => setImagePanelFor(null)}
+            onPick={(src) => {
+              updateBlock(child.id, { src } as Partial<ImageBlock>);
+              setImagePanelFor(null);
+            }}
+          />
+        ) : (
+          <>
+            <div className="email-block-image-preview" style={{ justifyContent: alignStyle(child.align) as "left" | "center" | "right" }}>
+              {child.src ? (
+                <img
+                  ref={(el) => {
+                    if (el) imgRefs.current.set(child.id, el);
+                    else imgRefs.current.delete(child.id);
+                  }}
+                  src={child.src}
+                  alt=""
+                  style={child.width ? { width: child.width, height: "auto", maxWidth: "100%" } : { maxWidth: `min(${AUTO_IMAGE_MAX}px, 100%)`, height: "auto" }}
+                />
+              ) : (
+                <span className="empty-state">Aucune image</span>
+              )}
+            </div>
+            <div className="email-block-controls">
+              <button type="button" className="btn" onClick={() => setImagePanelFor(child.id)}>
+                Changer l'image
+              </button>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                Largeur
+                <input
+                  type="number"
+                  min={10}
+                  placeholder="auto"
+                  value={child.width ?? ""}
+                  onChange={(e) => updateBlock(child.id, { width: e.target.value ? Number(e.target.value) : null } as Partial<ImageBlock>)}
+                  style={{ width: 64 }}
+                />
+                px
+              </label>
+            </div>
+          </>
+        );
+    } else if (child.kind === "button") {
+      body = (
+        <div className="email-block-controls" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            Texte
+            <input type="text" value={child.label} onChange={(e) => updateBlock(child.id, { label: e.target.value } as Partial<ButtonBlock>)} style={{ flex: 1 }} />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            Lien
+            <input
+              type="text"
+              placeholder="https://…"
+              value={child.href}
+              onChange={(e) => updateBlock(child.id, { href: e.target.value } as Partial<ButtonBlock>)}
+              style={{ flex: 1 }}
+            />
+          </label>
+        </div>
+      );
+    } else if (child.kind === "social") {
+      body = (
+        <div className="email-block-controls" style={{ flexDirection: "column", alignItems: "stretch" }}>
+          {SOCIAL_NETWORKS.map((n) => (
+            <label key={n.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 80, flexShrink: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>{n.name}</span>
+              <input
+                type="text"
+                placeholder={n.placeholder}
+                value={child.links[n.key] || ""}
+                onChange={(e) => updateBlock(child.id, { links: { ...child.links, [n.key]: e.target.value } } as Partial<SocialBlock>)}
+                style={{ flex: 1 }}
+              />
+            </label>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="column-child" key={child.id}>
+        <div className="column-child-head">
+          <span className="email-block-label">{labelFor(child)}</span>
+          <span className="email-block-spacer" />
+          <button type="button" className="icon-btn" title="Monter" disabled={isFirst} onClick={() => moveColumnChild(parent.id, side, child.id, -1)}>
+            ↑
+          </button>
+          <button type="button" className="icon-btn" title="Descendre" disabled={isLast} onClick={() => moveColumnChild(parent.id, side, child.id, 1)}>
+            ↓
+          </button>
+          <button type="button" className="icon-btn danger" title="Supprimer" onClick={() => deleteBlock(child.id)}>
+            ✕
+          </button>
+        </div>
+        <div className="column-child-body">{body}</div>
+      </div>
+    );
   }
 
   /** Insère `block` à l'emplacement visé par le glisser en cours (overId/overPos), ou en fin de liste si aucun bloc n'est survolé. */
@@ -1376,6 +1683,53 @@ export function RichEmailEditor({ value, onChange }: { value: string; onChange: 
                         </span>
                       ))
                     )}
+                  </div>
+                </BlockChrome>
+              );
+            }
+            if (b.kind === "columns") {
+              return (
+                <BlockChrome
+                  key={b.id}
+                  {...common}
+                  extra={
+                    <span className="block-align-picker">
+                      <select
+                        className="columns-width-select"
+                        title="Largeur de la colonne de gauche"
+                        value={b.leftWidth}
+                        onChange={(e) => updateBlock(b.id, { leftWidth: Number(e.target.value) } as Partial<ColumnsBlock>)}
+                      >
+                        <option value={25}>25 / 75</option>
+                        <option value={33}>33 / 66</option>
+                        <option value={50}>50 / 50</option>
+                        <option value={66}>66 / 33</option>
+                      </select>
+                      <button
+                        type="button"
+                        className={`icon-btn ${b.divider ? "active" : ""}`}
+                        title="Séparateur vertical entre les colonnes"
+                        onClick={() => updateBlock(b.id, { divider: !b.divider } as Partial<ColumnsBlock>)}
+                      >
+                        │
+                      </button>
+                    </span>
+                  }
+                >
+                  <div className="columns-block-editor">
+                    {(["left", "right"] as const).map((side) => (
+                      <div className="column-side" key={side}>
+                        <div className="column-side-head">{side === "left" ? "Colonne gauche" : "Colonne droite"}</div>
+                        {b[side].map((child) => renderColumnChild(b, side, child))}
+                        <div className="column-side-add">
+                          {COLUMN_CHILD_PALETTE.map((p) => (
+                            <button key={p.kind} type="button" className="icon-btn" title={`Ajouter : ${p.label}`} onClick={() => addColumnChild(b.id, side, p.kind)}>
+                              {p.icon}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </BlockChrome>
               );
