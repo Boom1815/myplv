@@ -78,6 +78,11 @@ type ColumnsBlock = {
   divider: boolean;
   width: number;
   align: Align;
+  // Interlignage (CSS line-height, ex. 1.4) et taille globale (%, ex. 100)
+  // de la signature dans son entièreté — voir scaleHtml() : le second
+  // redimensionne polices/images/icônes ensemble, proportionnellement.
+  lineHeight: number;
+  scale: number;
 };
 export type Block = TextBlock | ImageBlock | ButtonBlock | DividerBlock | SpacerBlock | SocialBlock | ColumnsBlock;
 
@@ -134,6 +139,8 @@ function defaultColumnsBlock(): ColumnsBlock {
     divider: true,
     width: 100,
     align: "left",
+    lineHeight: 1.4,
+    scale: 100,
     left: [defaultImageBlock("https://app.myplv.be/logo-myplv.png", 100, "center")],
     right: [
       defaultTextBlock(
@@ -270,6 +277,8 @@ export function signatureLayouts(): SignatureLayout[] {
           divider: true,
           width: 100,
           align: "left",
+          lineHeight: 1.4,
+          scale: 100,
           left: [defaultImageBlock("https://app.myplv.be/logo-myplv.png", 100, "center")],
           right: [
             defaultTextBlock(
@@ -285,6 +294,26 @@ export function signatureLayouts(): SignatureLayout[] {
 
 function alignStyle(align: Align): string {
   return align === "center" ? "center" : align === "right" ? "right" : "left";
+}
+
+/**
+ * Redimensionne proportionnellement du HTML déjà rendu (tailles de police,
+ * largeurs/hauteurs d'image, padding de bouton) — utilisé par le bloc
+ * "Colonnes" pour sa molette "Taille globale". Pas de parsing DOM : une
+ * substitution regex ciblée sur les motifs qu'on génère nous-mêmes (voir
+ * blockBodyHtml plus bas) suffit et reste sûre, puisqu'on ne redimensionne
+ * jamais du HTML arbitraire venu d'ailleurs.
+ */
+function scaleHtml(html: string, scalePercent: number): string {
+  if (scalePercent === 100) return html;
+  const factor = scalePercent / 100;
+  const px = (n: string) => `${Math.round(parseFloat(n) * factor)}`;
+  return html
+    .replace(/font-size:(\d+(?:\.\d+)?)px/g, (_, n) => `font-size:${px(n)}px`)
+    .replace(/width="(\d+)"/g, (_, n) => `width="${px(n)}"`)
+    .replace(/height="(\d+)"/g, (_, n) => `height="${px(n)}"`)
+    .replace(/width:(\d+(?:\.\d+)?)px/g, (_, n) => `width:${px(n)}px`)
+    .replace(/padding:(\d+(?:\.\d+)?)px (\d+(?:\.\d+)?)px/g, (_, a, b) => `padding:${px(a)}px ${px(b)}px`);
 }
 
 function blockBodyHtml(b: Block): string {
@@ -330,11 +359,15 @@ function blockBodyHtml(b: Block): string {
       // qui ignore flex/grid) : deux <td> d'une même table, largeurs en %.
       // valign="middle" pour que logo (souvent plus bas que le texte) et
       // coordonnées restent alignés verticalement l'un sur l'autre.
-      const leftHtml = b.left.map(blockBodyHtml).join("");
-      const rightHtml = b.right.map(blockBodyHtml).join("");
+      // scaleHtml agit sur le HTML déjà rendu (polices, images, icônes,
+      // padding de bouton) ; line-height sur le <td> plutôt que sur chaque
+      // <p> : hérité normalement en CSS, tant qu'un bloc enfant ne fixe pas
+      // son propre line-height (aucun de nos blocs ne le fait).
+      const leftHtml = scaleHtml(b.left.map(blockBodyHtml).join(""), b.scale);
+      const rightHtml = scaleHtml(b.right.map(blockBodyHtml).join(""), b.scale);
       const rightWidth = 100 - b.leftWidth;
       const dividerStyle = b.divider ? "border-left:1px solid #D8DCD3;" : "";
-      const inner = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr>
+      const inner = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;line-height:${b.lineHeight};"><tr>
 <td width="${b.leftWidth}%" valign="middle" style="padding:0 16px 0 0;">${leftHtml}</td>
 <td width="${rightWidth}%" valign="middle" style="padding:0 0 0 16px;${dividerStyle}">${rightHtml}</td>
 </tr></table>`;
@@ -382,6 +415,8 @@ function blockConfig(b: Block): Record<string, unknown> {
         divider: b.divider,
         width: b.width,
         align: b.align,
+        lineHeight: b.lineHeight,
+        scale: b.scale,
         left: b.left.map(childToPlainConfig),
         right: b.right.map(childToPlainConfig),
       };
@@ -484,6 +519,8 @@ function columnsFromConfig(cfg: Record<string, unknown>): ColumnsBlock {
     divider: cfg.divider !== false,
     width: typeof cfg.width === "number" ? cfg.width : 100,
     align: (cfg.align as Align) || "left",
+    lineHeight: typeof cfg.lineHeight === "number" ? cfg.lineHeight : 1.4,
+    scale: typeof cfg.scale === "number" ? cfg.scale : 100,
     left: parseSide(cfg.left),
     right: parseSide(cfg.right),
   };
@@ -1790,6 +1827,34 @@ export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value:
                       <span className="mono" style={{ minWidth: 32, color: "var(--ink-faint)" }}>{b.width}%</span>
                     </label>
                     <AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align } as Partial<ColumnsBlock>)} />
+                  </div>
+                  {/* Interlignage et taille globale — la signature dans son
+                      entièreté : scaleHtml() redimensionne polices, images et
+                      icônes ensemble, proportionnellement (voir plus haut). */}
+                  <div className="email-block-controls">
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      Interlignage
+                      <input
+                        type="range"
+                        min={1}
+                        max={2}
+                        step={0.1}
+                        value={b.lineHeight}
+                        onChange={(e) => updateBlock(b.id, { lineHeight: Number(e.target.value) } as Partial<ColumnsBlock>)}
+                      />
+                      <span className="mono" style={{ minWidth: 24, color: "var(--ink-faint)" }}>{b.lineHeight.toFixed(1)}</span>
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      Taille globale
+                      <input
+                        type="range"
+                        min={60}
+                        max={150}
+                        value={b.scale}
+                        onChange={(e) => updateBlock(b.id, { scale: Number(e.target.value) } as Partial<ColumnsBlock>)}
+                      />
+                      <span className="mono" style={{ minWidth: 32, color: "var(--ink-faint)" }}>{b.scale}%</span>
+                    </label>
                   </div>
                   <div className="columns-block-editor">
                     {(["left", "right"] as const).map((side) => (
