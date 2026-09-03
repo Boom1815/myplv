@@ -387,7 +387,11 @@ function blockBodyHtml(b: Block): string {
     }
     case "columns": {
       // Motif email standard pour un côte-à-côte fiable (y compris Outlook,
-      // qui ignore flex/grid) : deux <td> d'une même table, largeurs en %.
+      // qui ignore flex/grid) : deux <td> d'une même table. PAS de largeur en
+      // % sur ces <td> : chaque colonne s'ajuste à la taille réelle de son
+      // contenu (photo, texte...) — avec un % fixe, dès que le contenu ne
+      // remplissait pas toute la largeur allouée, ça laissait un vide interne
+      // (le "blanc" signalé), impossible à éliminer en centrant le bloc.
       // valign="middle" pour que logo (souvent plus bas que le texte) et
       // coordonnées restent alignés verticalement l'un sur l'autre.
       // scaleHtml agit sur le HTML déjà rendu (polices, images, icônes,
@@ -396,18 +400,21 @@ function blockBodyHtml(b: Block): string {
       // son propre line-height (aucun de nos blocs ne le fait).
       const leftHtml = scaleHtml(b.left.map(blockBodyHtml).join(""), b.scale);
       const rightHtml = scaleHtml(b.right.map(blockBodyHtml).join(""), b.scale);
-      const rightWidth = 100 - b.leftWidth;
       const dividerStyle = b.divider ? "border-left:1px solid #D8DCD3;" : "";
-      const inner = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;line-height:${b.lineHeight};"><tr>
-<td width="${b.leftWidth}%" valign="middle" style="padding:0 16px 0 0;">${leftHtml}</td>
-<td width="${rightWidth}%" valign="middle" style="padding:0 0 0 16px;${dividerStyle}">${rightHtml}</td>
+      const inner = `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0;line-height:${b.lineHeight};"><tr>
+<td valign="middle" style="padding:0 16px 0 0;">${leftHtml}</td>
+<td valign="middle" style="padding:0 0 0 16px;${dividerStyle}">${rightHtml}</td>
 </tr></table>`;
-      // width < 100 : le bloc entier (les deux colonnes ensemble) devient
-      // plus étroit que la colonne email, avec de l'espace blanc réparti
-      // selon align — même motif "table 100% -> td align -> table width=X%"
-      // que pour une image, mais appliqué aux deux colonnes ensemble.
-      if (b.width >= 100) return inner;
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}"><table role="presentation" width="${b.width}%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td>${inner}</td></tr></table></td></tr></table>`;
+      // Le bloc (naturellement à la taille de son contenu, donc déjà plus
+      // étroit que la colonne email) est positionné selon align — toujours,
+      // pas seulement quand width est réduit : centrer/aligner à droite doit
+      // fonctionner même à largeur "100%" par défaut, puisque le contenu ne
+      // remplit de toute façon jamais réellement 600px. width < 100 impose en
+      // plus une largeur précise (utile pour un bandeau volontairement large) ;
+      // à 100% (par défaut), le bloc garde sa taille naturelle.
+      const widthAttr = b.width < 100 ? ` width="${b.width}%"` : "";
+      const widthStyle = b.width < 100 ? `width:${b.width}%;max-width:${b.width}%;` : "";
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;"><tr><td align="${alignStyle(b.align)}"><table role="presentation"${widthAttr} cellpadding="0" cellspacing="0" style="margin:0;${widthStyle}"><tr><td>${inner}</td></tr></table></td></tr></table>`;
     }
   }
 }
@@ -1811,24 +1818,13 @@ export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value:
                   {/* Réglages dans la barre de contrôles (comme Image/Bouton),
                       PAS dans l'en-tête du bloc : l'en-tête est une simple
                       ligne flex sans retour à la ligne — trop de contrôles
-                      dedans (largeur colonnes + largeur totale + alignement)
-                      débordait et devenait invisible/inutilisable sur un
-                      éditeur pas assez large. Molettes (curseurs) plutôt que
-                      des listes à choix fixes, pour un réglage continu. */}
+                      dedans débordait et devenait invisible/inutilisable sur
+                      un éditeur pas assez large. Molettes (curseurs) plutôt
+                      que des listes à choix fixes, pour un réglage continu.
+                      Pas de réglage "largeur gauche/droite" : chaque colonne
+                      s'ajuste maintenant à son propre contenu (voir
+                      blockBodyHtml) — plus rien à répartir en %. */}
                   <div className="email-block-controls">
-                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      Colonnes
-                      <input
-                        type="range"
-                        min={15}
-                        max={85}
-                        value={b.leftWidth}
-                        onChange={(e) => updateBlock(b.id, { leftWidth: Number(e.target.value) } as Partial<ColumnsBlock>)}
-                      />
-                      <span className="mono" style={{ minWidth: 64, color: "var(--ink-faint)" }}>
-                        {b.leftWidth}% / {100 - b.leftWidth}%
-                      </span>
-                    </label>
                     <span className="block-align-picker">
                       <button
                         type="button"
@@ -1839,15 +1835,8 @@ export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value:
                         │
                       </button>
                     </span>
-                  </div>
-                  {/* Largeur + alignement du bloc entier (les deux colonnes
-                      ensemble) dans la page — pas des coordonnées à
-                      l'intérieur d'une colonne : c'est ce qui permet de poser
-                      toute la signature à gauche, à droite ou centrée, avec
-                      de l'espace blanc autour. */}
-                  <div className="email-block-controls">
                     <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      Largeur totale
+                      Largeur max.
                       <input
                         type="range"
                         min={20}
@@ -1857,6 +1846,10 @@ export function RichEmailEditor({ value, onChange, appendPreviewHtml }: { value:
                       />
                       <span className="mono" style={{ minWidth: 32, color: "var(--ink-faint)" }}>{b.width}%</span>
                     </label>
+                    {/* Toujours actif, même à 100% : le bloc garde sa taille
+                        naturelle (jamais toute la largeur de la colonne
+                        email), donc positionner à gauche/centre/droite a un
+                        effet visible dans tous les cas. */}
                     <AlignPicker value={b.align} onChange={(align) => updateBlock(b.id, { align } as Partial<ColumnsBlock>)} />
                   </div>
                   {/* Interlignage et taille globale — la signature dans son
